@@ -4,34 +4,11 @@ services:
     env: node
     plan: free
 
-    # Build & start
     buildCommand: npm ci && npm run build
     startCommand: npm run migrate:prod && npm start
 
+    # (Optionnel) tu peux garder NODE_ENV ici, ou le mettre aussi dans le dashboard,
+    # mais évite les doublons.
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      - key: FRONTEND_URL
-        value: https://explorouen.netlify.app
-      - key: DATABASE_URL
-        value: postgresql://postgres.pvrkggtteqosbhzniusj:<MDP>@aws-1-eu-west-3.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require&connection_limit=1
-      - key: JWT_SECRET
-        generateValue: true
-      - key: FROM_EMAIL
-        value: contact@explorouen.onrender.com
-
-      # À AJOUTER MANUELLEMENT DANS LE DASHBOARD (sync:false => non créées par YAML)
-      - key: CLERK_PUBLISHABLE_KEY
-        sync: false
-      - key: CLERK_SECRET_KEY
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-
-      # Si tu les utilises, pense à les créer aussi côté dashboard
-      # - key: MAX_FILE_SIZE
-      #   value: "5242880"
-      # - key: UPLOAD_PATH
-      #   value: ./uploads
