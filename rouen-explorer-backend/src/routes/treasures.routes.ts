@@ -2,11 +2,12 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 // import { validate } from '../middleware/validation.middleware';
-import Joi from 'joi';
+// import Joi from 'joi'; // Temporairement commenté car non utilisé
 
 const router = Router();
 
-// Schémas de validation
+// Schémas de validation - temporairement commentés car non utilisés
+/*
 const createTreasureHuntSchema = Joi.object({
     title: Joi.string().required().min(3).max(100),
     description: Joi.string().required().min(10).max(500),
@@ -63,6 +64,7 @@ const submitAnswerSchema = Joi.object({
     clueId: Joi.string().required(),
     answer: Joi.string().required().min(1).max(200)
 });
+*/
 
 // Routes publiques - temporairement désactivées en attendant le contrôleur
 // router.get('/', TreasureHuntController.getAllTreasureHunts);

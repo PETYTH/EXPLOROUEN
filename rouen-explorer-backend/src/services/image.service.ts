@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import { config } from '../config';
+// import { config } from '../config'; // Temporairement commenté car non utilisé
 
 const prisma = new PrismaClient();
 
@@ -79,7 +79,7 @@ export class ImageService {
         return true;
     }
 
-    static async updateEntityImages(entityType: 'activity' | 'place' | 'user', entityId: string, imageIds: string[]) {
+    static async updateEntityImages(_entityType: 'activity' | 'place' | 'user', entityId: string, imageIds: string[]) {
         // Mettre à jour les images existantes pour les lier à l'entité
         await prisma.image.updateMany({
             where: {
