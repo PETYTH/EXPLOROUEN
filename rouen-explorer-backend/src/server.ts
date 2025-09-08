@@ -25,6 +25,7 @@ import messagesRoutes from './routes/messages.routes';
 import discussionsRoutes from './routes/discussions.routes';
 import usersRoutes from './routes/users.routes';
 import uploadRoutes from './routes/upload.routes';
+import authRoutes from './routes/auth.routes';
 // import treasuresRoutes from './routes/treasures.routes';
 
 const app = express();
@@ -86,6 +87,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(sanitizeInput);
 
 // Routes API
+app.use('/api/auth', authRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/contact', contactRoutes);

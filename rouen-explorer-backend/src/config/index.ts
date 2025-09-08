@@ -47,7 +47,7 @@ console.log('📂 Répertoire du module:', __dirname);
 
 export const config = {
     // Serveur
-    port: process.env.PORT || 3001,
+    port: process.env.PORT || 10000,
     nodeEnv: process.env.NODE_ENV || 'development',
 
     // Base de données

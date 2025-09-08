@@ -1,8 +1,9 @@
 FROM node:18
 
-# Install OpenSSL 1.1 libraries required by Prisma
+# Install OpenSSL libraries and other dependencies required by Prisma
 RUN apt-get update && apt-get install -y \
-    libssl1.1 \
+    openssl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,11 +17,11 @@ RUN npm ci
 # Copier le schema Prisma
 COPY prisma ./prisma/
 
-# Générer le client Prisma
-RUN npx prisma generate
-
 # Copier le code source
 COPY . .
+
+# Générer le client Prisma
+RUN npx prisma generate
 
 # Build de l'application TypeScript
 RUN npm run build
