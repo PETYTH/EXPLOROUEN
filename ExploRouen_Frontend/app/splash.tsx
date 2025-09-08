@@ -99,12 +99,13 @@ export default function SplashScreen() {
         <View style={styles.content}>
           {/* Logo */}
           <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-            <LinearGradient
-              colors={['#8B5CF6', '#A855F7', '#C084FC']}
-              style={styles.logo}
-            >
-              <Text style={styles.logoText}>🏛️</Text>
-            </LinearGradient>
+            <View style={styles.logo}>
+              <Image 
+                source={require('../assets/images/ExploRouen-Logo.svg')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
           </Animated.View>
 
           {/* Title */}
@@ -190,14 +191,16 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 12,
   },
-  logoText: {
-    fontSize: 60,
+  logoImage: {
+    width: 80,
+    height: 80,
   },
   title: {
     fontSize: 42,
