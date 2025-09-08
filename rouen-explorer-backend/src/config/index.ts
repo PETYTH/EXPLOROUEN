@@ -55,11 +55,11 @@ export const config = {
         url: process.env.DATABASE_URL || 'file:./dev.db'
     },
     mongodb: {
-        url: process.env.MONGODB_URL || 'mongodb://localhost:27017/ExploRouen'
+        url: process.env.MONGODB_URL || ''
     },
 
     // Redis
-    redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+    redisUrl: process.env.REDIS_URL || '',
 
     // JWT
     jwtSecret: process.env.JWT_SECRET || 'norman-explorer-super-secret-key-change-in-production',
@@ -70,15 +70,8 @@ export const config = {
     // Sécurité
     bcryptRounds: 12,
     corsOrigin: [
-        process.env.FRONTEND_URL || 'http://localhost:8081',
-        'http://localhost:8081',
-        'http://localhost:19006',    // Expo web dev server
-        'http://127.0.0.1:8081',
-        'http://127.0.0.1:19006',
-        'http://192.168.140.1:8081', // IP locale pour Expo
-        'http://192.168.140.1:5000', // IP locale pour API calls depuis mobile
-        'exp://192.168.140.1:8081',  // Protocole Expo
-        'exp://localhost:8081',
+        process.env.FRONTEND_URL || 'https://explorouen-frontend.onrender.com',
+        'https://explorouen-frontend.onrender.com',
         '*' // Autoriser toutes les origines pour le développement
     ],
 

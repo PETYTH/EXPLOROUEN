@@ -4,7 +4,11 @@ import { config } from './index';
 
 export const connectMongoDB = async () => {
     try {
-        const mongoUrl = config.mongodb.url || 'mongodb://localhost:27017/ExploRouen';
+        const mongoUrl = config.mongodb.url;
+        if (!mongoUrl) {
+            console.log('⚠️ MongoDB URL non configurée, connexion ignorée');
+            return;
+        }
         await mongoose.connect(mongoUrl, {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
@@ -13,7 +17,8 @@ export const connectMongoDB = async () => {
         console.log('✅ MongoDB connecté avec succès');
     } catch (error) {
         console.error('❌ Erreur de connexion MongoDB:', error);
-        process.exit(1);
+        // Ne pas arrêter le serveur si MongoDB n'est pas disponible
+        console.log('⚠️ Continuant sans MongoDB...');
     }
 };
 

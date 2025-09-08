@@ -186,12 +186,18 @@ const startServer = async () => {
         await connectDatabase();
         console.log('✅ Base de données connectée');
 
-        // Désactiver MongoDB temporairement pour le déploiement
-        console.log('⚠️ MongoDB temporairement désactivé pour le déploiement');
-        
-        // Démarrer les tâches de nettoyage automatique seulement en production
-        if (config.nodeEnv === 'production') {
-            // CleanupJob.start(); // Désactivé temporairement
+        // Connexion MongoDB optionnelle
+        if (config.mongodb.url) {
+            console.log('🔌 Connexion à MongoDB...');
+            await connectMongoDB();
+            console.log('✅ MongoDB connecté');
+            
+            // Démarrer les tâches de nettoyage automatique seulement en production
+            if (config.nodeEnv === 'production') {
+                CleanupJob.start();
+            }
+        } else {
+            console.log('⚠️ MongoDB non configuré, continuant sans MongoDB');
         }
 
         console.log('🚀 Démarrage du serveur...');

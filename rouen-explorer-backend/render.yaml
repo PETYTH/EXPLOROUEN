@@ -11,9 +11,7 @@ services:
       - key: PORT
         value: 10000
       - key: FRONTEND_URL
-        value: http://localhost:8081
-      - key: MONGODB_URL
-        value: mongodb://localhost:27017/ExploRouen
+        value: https://explorouen-frontend.onrender.com
       - key: DATABASE_URL
         value: postgresql://postgres.pvrkggtteqosbhzniusj:LTrWXaZjPzs6lw3M@aws-1-eu-west-3.pooler.supabase.com:6543/postgres
       - key: CLERK_PUBLISHABLE_KEY
