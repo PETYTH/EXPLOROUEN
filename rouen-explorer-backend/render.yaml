@@ -3,13 +3,17 @@ services:
     name: explorouen-backend
     env: node
     plan: free
-    buildCommand: npm install && npx tsc
+    buildCommand: npm install && DATABASE_URL="postgresql://localhost:5432/explorouen" npx prisma generate && npx tsc
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: FRONTEND_URL
+        value: http://localhost:8081
+      - key: MONGODB_URL
+        value: mongodb://localhost:27017/ExploRouen
       - key: DATABASE_URL
         value: postgresql://postgres.pvrkggtteqosbhzniusj:LTrWXaZjPzs6lw3M@aws-1-eu-west-3.pooler.supabase.com:6543/postgres
       - key: CLERK_PUBLISHABLE_KEY
