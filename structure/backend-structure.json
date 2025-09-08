@@ -1,0 +1,230 @@
+{
+  "backend_structure": {
+    "description": "Structure complète du backend ExploRouen API",
+    "framework": "Node.js + Express + TypeScript",
+    "database": "SQLite avec Prisma ORM + MongoDB pour certaines fonctionnalités",
+    "authentication": "Clerk JWT",
+    "websocket": "Socket.IO pour chat temps réel",
+    "entry_point": {
+      "file": "src/server.ts",
+      "description": "Point d'entrée principal du serveur",
+      "features": ["Express app", "Socket.IO", "Middlewares sécurité", "Routes API"]
+    },
+    "configuration": {
+      "location": "src/config/",
+      "files": {
+        "index.ts": "Configuration principale (ports, CORS, JWT)",
+        "database.ts": "Configuration base de données SQLite/Prisma", 
+        "mongodb.ts": "Configuration MongoDB pour certaines fonctionnalités"
+      }
+    },
+    "routes": {
+      "location": "src/routes/",
+      "description": "Définition des endpoints API",
+      "active_routes": {
+        "activities.routes.ts": {
+          "prefix": "/api/activities",
+          "endpoints": ["GET /", "GET /:id", "POST /", "PUT /:id", "DELETE /:id", "POST /:id/register", "DELETE /:id/register"],
+          "description": "Gestion des activités"
+        },
+        "places.routes.ts": {
+          "prefix": "/api/places", 
+          "endpoints": ["GET /", "GET /:id", "POST /", "PUT /:id", "DELETE /:id", "POST /:id/favorite", "POST /:id/review"],
+          "description": "Gestion des lieux/monuments"
+        },
+        "monuments.routes.ts": {
+          "prefix": "/api/monuments",
+          "endpoints": ["GET /", "GET /:id", "POST /", "PUT /:id", "DELETE /:id"],
+          "description": "Gestion spécifique des monuments"
+        },
+        "messages.routes.ts": {
+          "prefix": "/api/messages",
+          "endpoints": ["GET /activity/:id", "POST /activity/:id", "GET /private/:chatId", "POST /private/:chatId", "POST /private/create"],
+          "description": "Système de messagerie et chat"
+        },
+        "discussions.routes.ts": {
+          "prefix": "/api/discussions",
+          "endpoints": ["GET /", "POST /", "GET /:id", "PUT /:id", "DELETE /:id", "GET /:id/messages", "POST /:id/messages"],
+          "description": "Discussions liées aux activités"
+        },
+        "chat.routes.ts": {
+          "prefix": "/api/chat",
+          "endpoints": ["GET /rooms", "POST /rooms", "GET /rooms/:id/messages", "POST /rooms/:id/messages"],
+          "description": "Chat en temps réel"
+        },
+        "contact.routes.ts": {
+          "prefix": "/api/contact",
+          "endpoints": ["POST /", "GET /", "GET /:id", "PUT /:id", "DELETE /:id"],
+          "description": "Formulaire de contact"
+        },
+        "notifications.routes.ts": {
+          "prefix": "/api/notifications",
+          "endpoints": ["GET /", "POST /", "PUT /:id/read", "PUT /read-all"],
+          "description": "Système de notifications"
+        },
+        "maps.routes.ts": {
+          "prefix": "/api/maps",
+          "endpoints": ["GET /nearby", "GET /route"],
+          "description": "Services cartographiques"
+        },
+        "upload.routes.ts": {
+          "prefix": "/api/upload",
+          "endpoints": ["POST /image", "POST /multiple"],
+          "description": "Upload de fichiers/images"
+        },
+        "users.routes.ts": {
+          "prefix": "/api/users",
+          "endpoints": ["GET /profile", "PUT /profile"],
+          "description": "Gestion profils utilisateurs"
+        },
+        "auth.routes.ts": {
+          "prefix": "/api/auth",
+          "endpoints": ["POST /login", "POST /register", "POST /forgot-password", "POST /reset-password"],
+          "description": "Authentification (legacy, remplacé par Clerk)"
+        }
+      },
+      "inactive_routes": {
+        "treasures.routes.ts": {
+          "status": "temporairement désactivé",
+          "description": "Chasse aux trésors - fonctionnalité future"
+        },
+        "ephemeral-chat.routes.ts": {
+          "status": "non intégré",
+          "description": "Chat éphémère - non utilisé"
+        }
+      }
+    },
+    "controllers": {
+      "location": "src/controllers/",
+      "description": "Logique métier des endpoints",
+      "files": {
+        "activities.controller.ts": "CRUD activités, inscriptions, recherche géolocalisée",
+        "places.controller.minimal.ts": "CRUD lieux/monuments avec Prisma",
+        "messages.controller.ts": "Gestion messages chat, WebSocket, médias",
+        "discussions.controller.ts": "Discussions liées aux activités",
+        "chat.controller.ts": "Chat temps réel, salles, participants",
+        "contact.controller.ts": "Traitement formulaires contact",
+        "notification.controller.ts": "Gestion notifications utilisateurs",
+        "maps.controller.ts": "Services géolocalisés, POI, itinéraires",
+        "monuments.controller.ts": "Gestion spécifique monuments",
+        "users.controller.ts": "Profils utilisateurs",
+        "auth.controller.ts": "Authentification legacy",
+        "ephemeral-chat.controller.ts": "Chat éphémère (non utilisé)"
+      }
+    },
+    "services": {
+      "location": "src/services/",
+      "description": "Couche service avec logique métier",
+      "files": {
+        "activities.service.ts": "Logique métier activités, calculs géographiques",
+        "places.service.minimal.ts": "Service lieux avec Prisma",
+        "discussions.service.ts": "Logique discussions et messages",
+        "chat.service.ts": "Service chat WebSocket",
+        "contact.service.ts": "Traitement contacts avec MongoDB",
+        "notification.service.ts": "Gestion notifications",
+        "maps.service.ts": "Services cartographiques externes",
+        "monuments.service.ts": "Logique monuments",
+        "users.service.ts": "Gestion utilisateurs",
+        "auth.service.ts": "Services authentification",
+        "email.service.ts": "Envoi emails (contact, notifications)",
+        "image.service.ts": "Traitement et optimisation images",
+        "ephemeral-chat.service.ts": "Chat éphémère (non utilisé)"
+      },
+      "unused_files": {
+        "places.service.ts": "Version MongoDB obsolète",
+        "treasures.service.ts": "Fichier vide pour fonctionnalité future"
+      }
+    },
+    "middleware": {
+      "location": "src/middleware/",
+      "description": "Middlewares Express",
+      "files": {
+        "auth.middleware.ts": "Vérification tokens JWT",
+        "clerk.middleware.ts": "Intégration Clerk authentication",
+        "security.middleware.ts": "Sécurité (sanitization, rate limiting)",
+        "upload.middleware.ts": "Gestion upload fichiers avec Multer",
+        "validation.middleware.ts": "Validation données avec Joi"
+      }
+    },
+    "models": {
+      "location": "src/models/",
+      "description": "Modèles de données",
+      "prisma_models": "Définis dans prisma/schema.prisma",
+      "mongodb_models": {
+        "contact.model.ts": "Modèle contact avec Mongoose",
+        "mongodb/": "Modèles MongoDB legacy (Contact, ChatMessage, Notification, UserSession)"
+      },
+      "unused_models": {
+        "Place.ts": "Modèle MongoDB obsolète",
+        "ChatMessage.ts": "Doublon du modèle MongoDB"
+      }
+    },
+    "jobs": {
+      "location": "src/jobs/",
+      "description": "Tâches automatisées",
+      "files": {
+        "cleanup.job.ts": "Nettoyage données expirées, chats éphémères"
+      }
+    },
+    "utils": {
+      "location": "src/utils/",
+      "description": "Utilitaires et helpers",
+      "files": {
+        "database.ts": "Connexion et initialisation Prisma",
+        "redis.ts": "Configuration Redis (désactivé en dev)",
+        "logger.ts": "Système de logs",
+        "helpers.ts": "Fonctions utilitaires diverses"
+      }
+    },
+    "types": {
+      "location": "src/types/",
+      "description": "Définitions TypeScript",
+      "files": {
+        "config.d.ts": "Types configuration",
+        "express.d.ts": "Extensions types Express",
+        "socket.d.ts": "Types WebSocket/Socket.IO"
+      }
+    },
+    "api_endpoints": {
+      "public_endpoints": [
+        "GET /api/activities - Liste activités publiques",
+        "GET /api/activities/:id - Détail activité",
+        "GET /api/places - Liste lieux publics", 
+        "GET /api/monuments - Liste monuments",
+        "POST /api/contact - Envoi message contact",
+        "GET /health - Health check"
+      ],
+      "authenticated_endpoints": [
+        "POST /api/activities - Créer activité",
+        "POST /api/activities/:id/register - S'inscrire",
+        "GET /api/messages/activity/:id - Messages chat",
+        "POST /api/messages/activity/:id - Envoyer message",
+        "GET /api/notifications - Notifications utilisateur",
+        "POST /api/upload/image - Upload image"
+      ]
+    },
+    "websocket_events": {
+      "connection_events": [
+        "connection - Nouvelle connexion client",
+        "disconnect - Déconnexion client",
+        "connect_error - Erreur connexion"
+      ],
+      "chat_events": [
+        "join-discussion - Rejoindre chat",
+        "leave-discussion - Quitter chat", 
+        "new-message - Nouveau message",
+        "user-typing - Utilisateur tape",
+        "user-stop-typing - Arrêt frappe"
+      ]
+    },
+    "security_features": [
+      "Helmet.js - Headers sécurité",
+      "CORS configuré",
+      "Rate limiting",
+      "Input sanitization",
+      "JWT token validation",
+      "File upload restrictions",
+      "MongoDB injection protection"
+    ]
+  }
+}

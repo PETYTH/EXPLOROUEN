@@ -1,0 +1,230 @@
+{
+  "navigation_structure": {
+    "description": "Structure de navigation entre les pages ExploRouen",
+    "framework": "React Native + Expo Router (file-based routing)",
+    
+    "pages_navigation": {
+      "splash.tsx": {
+        "description": "Écran de démarrage",
+        "navigates_to": [
+          "get-started.tsx",
+          "(auth)/auth.tsx (si non connecté)",
+          "(tabs)/index.tsx (si connecté)",
+          "connection-error.tsx (si erreur réseau)"
+        ]
+      },
+      
+      "get-started.tsx": {
+        "description": "Page d'accueil avec présentation",
+        "navigates_to": [
+          "(auth)/auth.tsx"
+        ]
+      },
+      
+      "connection-error.tsx": {
+        "description": "Page d'erreur de connexion",
+        "navigates_to": [
+          "splash.tsx (retry)",
+          "(auth)/auth.tsx (fallback)"
+        ]
+      },
+      
+      "(auth)/auth.tsx": {
+        "description": "Page login/register",
+        "navigates_to": [
+          "(auth)/forgot-password.tsx (lien mot de passe oublié)",
+          "(tabs)/index.tsx (après connexion réussie)"
+        ]
+      },
+      
+      "(auth)/forgot-password.tsx": {
+        "description": "Réinitialisation mot de passe",
+        "navigates_to": [
+          "(auth)/auth.tsx (retour ou après reset)",
+          "(tabs)/index.tsx (connexion automatique après reset)"
+        ]
+      },
+      
+      "(tabs)/index.tsx": {
+        "description": "Page d'accueil - Tab Accueil",
+        "navigates_to": [
+          "activity/[id].tsx (détail activité)",
+          "monument/[id].tsx (détail monument)",
+          "create-activity.tsx (créer activité)",
+          "(tabs)/activities.tsx (tab Activités)",
+          "(tabs)/messages.tsx (tab Messages)",
+          "(tabs)/map.tsx (tab Carte)",
+          "(tabs)/profile.tsx (tab Profil)",
+          "all-monuments.tsx (voir tous les monuments)"
+        ]
+      },
+      
+      "(tabs)/activities.tsx": {
+        "description": "Liste des activités - Tab Activités",
+        "navigates_to": [
+          "activity/[id].tsx (détail activité)",
+          "create-activity.tsx (créer activité)",
+          "(tabs)/index.tsx (tab Accueil)",
+          "(tabs)/messages.tsx (tab Messages)",
+          "(tabs)/map.tsx (tab Carte)",
+          "(tabs)/profile.tsx (tab Profil)"
+        ]
+      },
+      
+      "(tabs)/messages.tsx": {
+        "description": "Liste des conversations - Tab Messages",
+        "navigates_to": [
+          "chat/[id].tsx (ouvrir conversation)",
+          "(tabs)/index.tsx (tab Accueil)",
+          "(tabs)/activities.tsx (tab Activités)",
+          "(tabs)/map.tsx (tab Carte)",
+          "(tabs)/profile.tsx (tab Profil)"
+        ]
+      },
+      
+      "(tabs)/map.tsx": {
+        "description": "Carte interactive - Tab Carte",
+        "navigates_to": [
+          "activity/[id].tsx (détail activité depuis marqueur)",
+          "monument/[id].tsx (détail monument depuis marqueur)",
+          "(tabs)/index.tsx (tab Accueil)",
+          "(tabs)/activities.tsx (tab Activités)",
+          "(tabs)/messages.tsx (tab Messages)",
+          "(tabs)/profile.tsx (tab Profil)"
+        ]
+      },
+      
+      "(tabs)/profile.tsx": {
+        "description": "Profil utilisateur - Tab Profil",
+        "navigates_to": [
+          "notifications.tsx (centre de notifications)",
+          "contact.tsx (formulaire de contact)",
+          "legal.tsx (mentions légales)",
+          "(tabs)/index.tsx (tab Accueil)",
+          "(tabs)/activities.tsx (tab Activités)",
+          "(tabs)/messages.tsx (tab Messages)",
+          "(tabs)/map.tsx (tab Carte)",
+          "(auth)/auth.tsx (après déconnexion)"
+        ]
+      },
+      
+      "activity/[id].tsx": {
+        "description": "Détail d'une activité",
+        "navigates_to": [
+          "(tabs)/index.tsx (bouton retour)",
+          "(tabs)/activities.tsx (bouton retour)",
+          "chat/[id].tsx (accéder au chat de l'activité)",
+          "(tabs)/messages.tsx (après inscription à l'activité)"
+        ]
+      },
+      
+      "monument/[id].tsx": {
+        "description": "Détail d'un monument",
+        "navigates_to": [
+          "(tabs)/index.tsx (bouton retour)",
+          "(tabs)/map.tsx (bouton retour)",
+          "all-monuments.tsx (bouton retour)"
+        ]
+      },
+      
+      "chat/[id].tsx": {
+        "description": "Interface de chat temps réel",
+        "navigates_to": [
+          "(tabs)/messages.tsx (bouton retour)",
+          "activity/[id].tsx (si chat d'activité, bouton retour)"
+        ]
+      },
+      
+      "create-activity.tsx": {
+        "description": "Création d'activité",
+        "navigates_to": [
+          "(tabs)/index.tsx (annuler)",
+          "(tabs)/activities.tsx (annuler)",
+          "activity/[id].tsx (après création réussie)"
+        ]
+      },
+      
+      "create-monument.tsx": {
+        "description": "Création de monument",
+        "navigates_to": [
+          "(tabs)/index.tsx (annuler)",
+          "monument/[id].tsx (après création réussie)"
+        ]
+      },
+      
+      "all-monuments.tsx": {
+        "description": "Liste complète des monuments",
+        "navigates_to": [
+          "monument/[id].tsx (détail monument)",
+          "(tabs)/index.tsx (bouton retour)"
+        ]
+      },
+      
+      "notifications.tsx": {
+        "description": "Centre de notifications",
+        "navigates_to": [
+          "(tabs)/profile.tsx (bouton retour)",
+          "activity/[id].tsx (notification d'activité)",
+          "chat/[id].tsx (notification de message)"
+        ]
+      },
+      
+      "contact.tsx": {
+        "description": "Formulaire de contact",
+        "navigates_to": [
+          "(tabs)/profile.tsx (bouton retour ou après envoi)"
+        ]
+      },
+      
+      "legal.tsx": {
+        "description": "Mentions légales",
+        "navigates_to": [
+          "(tabs)/profile.tsx (bouton retour)"
+        ]
+      }
+    },
+    
+    "navigation_flows": {
+      "flux_authentification": {
+        "première_ouverture": "splash.tsx → get-started.tsx → (auth)/auth.tsx → (tabs)/index.tsx",
+        "utilisateur_connecté": "splash.tsx → (tabs)/index.tsx",
+        "mot_de_passe_oublié": "(auth)/auth.tsx → (auth)/forgot-password.tsx → (tabs)/index.tsx"
+      },
+      
+      "flux_principal_tabs": {
+        "navigation_horizontale": "(tabs)/index.tsx ↔ (tabs)/activities.tsx ↔ (tabs)/messages.tsx ↔ (tabs)/map.tsx ↔ (tabs)/profile.tsx"
+      },
+      
+      "flux_activités": {
+        "consultation": "(tabs)/index.tsx → activity/[id].tsx",
+        "création": "(tabs)/activities.tsx → create-activity.tsx → activity/[id].tsx",
+        "chat_activité": "activity/[id].tsx → chat/[id].tsx → (tabs)/messages.tsx"
+      },
+      
+      "flux_monuments": {
+        "depuis_accueil": "(tabs)/index.tsx → monument/[id].tsx",
+        "depuis_carte": "(tabs)/map.tsx → monument/[id].tsx",
+        "liste_complète": "(tabs)/index.tsx → all-monuments.tsx → monument/[id].tsx"
+      },
+      
+      "flux_chat": {
+        "depuis_messages": "(tabs)/messages.tsx → chat/[id].tsx",
+        "depuis_activité": "activity/[id].tsx → chat/[id].tsx",
+        "retour": "chat/[id].tsx → (tabs)/messages.tsx ou activity/[id].tsx"
+      },
+      
+      "flux_profil": {
+        "notifications": "(tabs)/profile.tsx → notifications.tsx → activity/[id].tsx ou chat/[id].tsx",
+        "contact": "(tabs)/profile.tsx → contact.tsx → (tabs)/profile.tsx",
+        "légal": "(tabs)/profile.tsx → legal.tsx → (tabs)/profile.tsx",
+        "déconnexion": "(tabs)/profile.tsx → (auth)/auth.tsx"
+      },
+      
+      "gestion_erreurs": {
+        "erreur_réseau": "any_page → connection-error.tsx → splash.tsx",
+        "token_expiré": "any_authenticated_page → (auth)/auth.tsx",
+        "page_non_trouvée": "404.tsx → (tabs)/index.tsx"
+      }
+    }
+  }
+}

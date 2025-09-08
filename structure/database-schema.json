@@ -1,0 +1,83 @@
+{
+  "database_tables": {
+    "description": "Tables et relations de la base de données ExploRouen",
+    "database_type": "SQLite",
+    "tables": {
+      "images": {
+        "description": "Stockage des images uploadées"
+      },
+      "places": {
+        "description": "Lieux et monuments de Rouen"
+      },
+      "activities": {
+        "description": "Activités touristiques organisées"
+      },
+      "activity_places": {
+        "description": "Liaison entre activités et lieux"
+      },
+      "monuments": {
+        "description": "Monuments spécifiques de Rouen"
+      },
+      "treasure_hunts": {
+        "description": "Chasses aux trésors organisées"
+      },
+      "treasure_hunt_places": {
+        "description": "Étapes d'une chasse aux trésors"
+      },
+      "registrations": {
+        "description": "Inscriptions des utilisateurs aux activités"
+      },
+      "discussions": {
+        "description": "Discussions liées aux activités"
+      },
+      "discussion_messages": {
+        "description": "Messages dans les discussions"
+      },
+      "reviews": {
+        "description": "Avis et commentaires sur les lieux"
+      },
+      "favorite_places": {
+        "description": "Lieux favoris des utilisateurs"
+      },
+      "chat_participants": {
+        "description": "Participants aux chats"
+      },
+      "chats": {
+        "description": "Salles de chat"
+      },
+      "messages": {
+        "description": "Messages de chat"
+      },
+      "notifications": {
+        "description": "Notifications utilisateur"
+      }
+    },
+    "relations": {
+      "one_to_many": [
+        "places -> activity_places",
+        "activities -> activity_places",
+        "places -> reviews",
+        "places -> favorite_places",
+        "discussions -> discussion_messages",
+        "chats -> messages",
+        "chats -> chat_participants",
+        "treasure_hunts -> treasure_hunt_places"
+      ],
+      "one_to_one": [
+        "activities -> discussions"
+      ],
+      "foreign_keys": [
+        "activity_places.activityId -> activities.id",
+        "activity_places.placeId -> places.id",
+        "discussions.activityId -> activities.id",
+        "discussion_messages.discussionId -> discussions.id",
+        "reviews.placeId -> places.id",
+        "favorite_places.placeId -> places.id",
+        "chat_participants.chatId -> chats.id",
+        "messages.chatId -> chats.id",
+        "treasure_hunt_places.treasureHuntId -> treasure_hunts.id",
+        "treasure_hunt_places.placeId -> places.id"
+      ]
+    }
+  }
+}

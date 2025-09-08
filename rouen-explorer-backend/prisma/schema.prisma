@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Image {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  data         String
+  entityType   String
+  entityId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("images")
+}
+
+model Place {
+  id                String              @id @default(cuid())
+  name              String
+  description       String
+  address           String
+  latitude          Float
+  longitude         Float
+  category          String
+  images            String?
+  audioGuide        String?
+  isActive          Boolean             @default(true)
+  openingHours      String?
+  historicalPeriod  String?
+  accessibility     String?
+  website           String?
+  phone             String?
+  email             String?
+  entryPrice        Float?
+  estimatedDuration Int?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  activityPlaces    ActivityPlace[]
+  favorites         FavoritePlace[]
+  reviews           Review[]
+  treasureHunts     TreasureHuntPlace[]
+
+  @@map("places")
+}
+
+model Activity {
+  id              String          @id @default(cuid())
+  title           String
+  description     String
+  type            String
+  difficulty      String
+  duration        Int
+  distance        Float?
+  maxParticipants Int
+  startDate       DateTime
+  endDate         DateTime?
+  meetingPoint    String
+  latitude        Float
+  longitude       Float
+  isActive        Boolean         @default(true)
+  price           Float?
+  equipment       String?
+  level           String?
+  createdBy       String
+  image           String?
+  category        String?
+  organizerName   String?
+  organizerAvatar String?
+  organizerRating Float?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  places          ActivityPlace[]
+  discussion      Discussion?
+
+  @@map("activities")
+}
+
+model ActivityPlace {
+  id          String   @id @default(cuid())
+  activityId  String
+  placeId     String
+  order       Int
+  description String?
+  place       Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, placeId])
+  @@map("activity_places")
+}
+
+model Monument {
+  id             String   @id @default(cuid())
+  name           String
+  description    String
+  image          String
+  rating         Float
+  visitDuration  String
+  category       String
+  latitude       Float
+  longitude      Float
+  address        String
+  openingHours   String
+  price          String
+  highlights     String
+  history        String
+  easterEggHints String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("monuments")
+}
+
+model TreasureHunt {
+  id              String              @id @default(cuid())
+  title           String
+  description     String
+  period          String
+  startDate       DateTime
+  endDate         DateTime
+  difficulty      String
+  prize           String?
+  prizeValue      Float?
+  isActive        Boolean             @default(true)
+  maxParticipants Int?
+  rules           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  places          TreasureHuntPlace[]
+
+  @@map("treasure_hunts")
+}
+
+model TreasureHuntPlace {
+  id             String       @id @default(cuid())
+  treasureHuntId String
+  placeId        String
+  order          Int
+  clue           String
+  solution       String?
+  points         Int          @default(10)
+  place          Place        @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  treasureHunt   TreasureHunt @relation(fields: [treasureHuntId], references: [id], onDelete: Cascade)
+
+  @@unique([treasureHuntId, placeId])
+  @@map("treasure_hunt_places")
+}
+
+model Registration {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  itemId      String
+  status      String    @default("PENDING")
+  score       Int?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, itemId, type])
+  @@map("registrations")
+}
+
+model Discussion {
+  id         String              @id @default(cuid())
+  activityId String?             @unique
+  title      String
+  isActive   Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  messages   DiscussionMessage[]
+  activity   Activity?           @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("discussions")
+}
+
+model DiscussionMessage {
+  id           String     @id @default(cuid())
+  discussionId String
+  userId       String
+  content      String
+  messageType  String     @default("TEXT")
+  mediaUrl     String?
+  thumbnailUrl String?
+  attachments  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+
+  @@map("discussion_messages")
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  userId       String
+  placeId      String
+  rating       Int
+  comment      String?
+  images       String?
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  place        Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@map("reviews")
+}
+
+model FavoritePlace {
+  id        String   @id @default(cuid())
+  userId    String
+  placeId   String
+  createdAt DateTime @default(now())
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@map("favorite_places")
+}
+
+model chat_participants {
+  id       String    @id
+  chatId   String
+  userId   String
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  chats    chats     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model chats {
+  id                String              @id
+  activityId        String?
+  type              String              @default("GROUP")
+  name              String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  chat_participants chat_participants[]
+  messages          messages[]
+}
+
+model messages {
+  id          String   @id
+  chatId      String
+  userId      String
+  content     String
+  messageType String   @default("TEXT")
+  mediaUrl    String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  chats       chats    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model notifications {
+  id        String   @id
+  userId    String
+  type      String
+  title     String
+  message   String
+  data      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
