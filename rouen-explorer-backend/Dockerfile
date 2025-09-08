@@ -1,5 +1,10 @@
 FROM node:18
 
+# Install OpenSSL 1.1 libraries required by Prisma
+RUN apt-get update && apt-get install -y \
+    libssl1.1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copier package.json et package-lock.json
