@@ -186,16 +186,12 @@ const startServer = async () => {
         await connectDatabase();
         console.log('✅ Base de données connectée');
 
-        // Désactiver MongoDB et Redis pour le développement local
+        // Désactiver MongoDB temporairement pour le déploiement
+        console.log('⚠️ MongoDB temporairement désactivé pour le déploiement');
+        
+        // Démarrer les tâches de nettoyage automatique seulement en production
         if (config.nodeEnv === 'production') {
-            console.log('🔌 Connexion à MongoDB...');
-            await connectMongoDB();
-            console.log('✅ MongoDB connecté');
-            
-            // Démarrer les tâches de nettoyage automatique
-            CleanupJob.start();
-        } else {
-            console.log('⚠️ MongoDB et Redis désactivés en mode développement');
+            // CleanupJob.start(); // Désactivé temporairement
         }
 
         console.log('🚀 Démarrage du serveur...');

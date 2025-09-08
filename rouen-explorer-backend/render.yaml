@@ -3,7 +3,7 @@ services:
     name: explorouen-backend
     env: node
     plan: free
-    buildCommand: npm install && DATABASE_URL=postgresql://localhost:5432/explorouen npx prisma generate && npx tsc
+    buildCommand: npm install && npx prisma generate && npx tsc
     startCommand: npm start
     envVars:
       - key: NODE_ENV

@@ -20,8 +20,7 @@ COPY prisma ./prisma/
 # Copier le code source
 COPY . .
 
-# Générer le client Prisma avec DATABASE_URL par défaut pour le build
-ENV DATABASE_URL=postgresql://localhost:5432/explorouen
+# Générer le client Prisma
 RUN npx prisma generate
 
 # Build de l'application TypeScript
