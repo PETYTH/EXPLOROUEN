@@ -11,9 +11,7 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        fromDatabase:
-          name: explorouen-db
-          property: connectionString
+        value: postgresql://postgres.pvrkggtteqosbhzniusj:LTrWXaZjPzs6lw3M@aws-1-eu-west-3.pooler.supabase.com:6543/postgres
       - key: CLERK_PUBLISHABLE_KEY
         sync: false
       - key: CLERK_SECRET_KEY
