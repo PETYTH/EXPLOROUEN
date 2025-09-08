@@ -110,7 +110,7 @@ export default function SplashScreen() {
           {/* Title */}
           <Animated.View style={titleAnimatedStyle}>
             <Text style={styles.title}>ExploRouen</Text>
-            <Text style={styles.subtitle}>Découvrez Rouen</Text>
+            <Text style={styles.subtitle}>Découvrons ensemble la ville de Rouen</Text>
           </Animated.View>
         </View>
 

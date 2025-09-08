@@ -1,7 +1,6 @@
--- Tables ExploRouen Database Schema
 
 CREATE TABLE images (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     filename TEXT NOT NULL,
     originalName TEXT NOT NULL,
     mimeType TEXT NOT NULL,
@@ -13,8 +12,9 @@ CREATE TABLE images (
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+
 CREATE TABLE places (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     address TEXT NOT NULL,
@@ -36,8 +36,9 @@ CREATE TABLE places (
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+
 CREATE TABLE activities (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -65,18 +66,20 @@ CREATE TABLE activities (
 );
 
 CREATE TABLE activity_places (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     activityId TEXT NOT NULL,
     placeId TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     description TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (activityId) REFERENCES activities(id) ON DELETE CASCADE,
     FOREIGN KEY (placeId) REFERENCES places(id) ON DELETE CASCADE,
     UNIQUE(activityId, placeId)
 );
 
 CREATE TABLE monuments (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     name TEXT NOT NULL,
     description TEXT NOT NULL,
     image TEXT NOT NULL,
@@ -96,7 +99,7 @@ CREATE TABLE monuments (
 );
 
 CREATE TABLE treasure_hunts (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     period TEXT NOT NULL,
@@ -112,21 +115,26 @@ CREATE TABLE treasure_hunts (
     updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
 CREATE TABLE treasure_hunt_places (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     treasureHuntId TEXT NOT NULL,
     placeId TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     clue TEXT NOT NULL,
     solution TEXT,
     points INTEGER DEFAULT 10,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (treasureHuntId) REFERENCES treasure_hunts(id) ON DELETE CASCADE,
     FOREIGN KEY (placeId) REFERENCES places(id) ON DELETE CASCADE,
     UNIQUE(treasureHuntId, placeId)
 );
 
+
 CREATE TABLE registrations (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     userId TEXT NOT NULL,
     type TEXT NOT NULL,
     itemId TEXT NOT NULL,
@@ -138,8 +146,8 @@ CREATE TABLE registrations (
     UNIQUE(userId, itemId, type)
 );
 
-CREATE TABLE discussions (
-    id TEXT PRIMARY KEY,
+
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     activityId TEXT UNIQUE,
     title TEXT NOT NULL,
     isActive BOOLEAN DEFAULT 1,
@@ -149,7 +157,7 @@ CREATE TABLE discussions (
 );
 
 CREATE TABLE discussion_messages (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     discussionId TEXT NOT NULL,
     userId TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -162,8 +170,9 @@ CREATE TABLE discussion_messages (
     FOREIGN KEY (discussionId) REFERENCES discussions(id) ON DELETE CASCADE
 );
 
+
 CREATE TABLE reviews (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     userId TEXT NOT NULL,
     placeId TEXT NOT NULL,
     rating INTEGER NOT NULL,
@@ -176,14 +185,16 @@ CREATE TABLE reviews (
     UNIQUE(userId, placeId)
 );
 
+
 CREATE TABLE favorite_places (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
     userId TEXT NOT NULL,
     placeId TEXT NOT NULL,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (placeId) REFERENCES places(id) ON DELETE CASCADE,
     UNIQUE(userId, placeId)
 );
+
 
 CREATE TABLE chat_participants (
     id TEXT PRIMARY KEY,
@@ -195,6 +206,7 @@ CREATE TABLE chat_participants (
     UNIQUE(chatId, userId)
 );
 
+
 CREATE TABLE chats (
     id TEXT PRIMARY KEY,
     activityId TEXT,
@@ -204,6 +216,7 @@ CREATE TABLE chats (
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     updatedAt DATETIME NOT NULL
 );
+
 
 CREATE TABLE messages (
     id TEXT PRIMARY KEY,
@@ -218,6 +231,7 @@ CREATE TABLE messages (
     FOREIGN KEY (chatId) REFERENCES chats(id) ON DELETE CASCADE
 );
 
+
 CREATE TABLE notifications (
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
@@ -230,69 +244,66 @@ CREATE TABLE notifications (
     updatedAt DATETIME NOT NULL
 );
 
--- Index pour les recherches géographiques
+
+
 CREATE INDEX idx_places_location ON places(latitude, longitude);
 CREATE INDEX idx_activities_location ON activities(latitude, longitude);
 
--- Index pour les recherches par catégorie
+
 CREATE INDEX idx_places_category ON places(category);
 CREATE INDEX idx_activities_type ON activities(type);
 CREATE INDEX idx_monuments_category ON monuments(category);
 
--- Index pour les recherches temporelles
 CREATE INDEX idx_activities_dates ON activities(startDate, endDate);
 CREATE INDEX idx_activities_active ON activities(isActive, startDate);
 
--- Index pour les relations utilisateur
+
 CREATE INDEX idx_registrations_user ON registrations(userId, type);
 CREATE INDEX idx_favorite_places_user ON favorite_places(userId);
 CREATE INDEX idx_reviews_user ON reviews(userId);
 CREATE INDEX idx_reviews_place ON reviews(placeId);
 
--- Index pour les messages et chats
+
 CREATE INDEX idx_messages_chat ON messages(chatId, createdAt);
 CREATE INDEX idx_discussion_messages_discussion ON discussion_messages(discussionId, createdAt);
 CREATE INDEX idx_chat_participants_chat ON chat_participants(chatId);
-
--- Index pour les notifications
 CREATE INDEX idx_notifications_user ON notifications(userId, isRead, createdAt);
 
--- Trigger pour la table images
+
 CREATE TRIGGER update_images_timestamp 
     AFTER UPDATE ON images
     BEGIN
         UPDATE images SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
--- Trigger pour la table places
+
 CREATE TRIGGER update_places_timestamp 
     AFTER UPDATE ON places
     BEGIN
         UPDATE places SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
--- Trigger pour la table activities
+
 CREATE TRIGGER update_activities_timestamp 
     AFTER UPDATE ON activities
     BEGIN
         UPDATE activities SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
--- Trigger pour la table monuments
+
 CREATE TRIGGER update_monuments_timestamp 
     AFTER UPDATE ON monuments
     BEGIN
         UPDATE monuments SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
--- Trigger pour la table registrations
 CREATE TRIGGER update_registrations_timestamp 
     AFTER UPDATE ON registrations
     BEGIN
         UPDATE registrations SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
--- Vue pour les activités avec leurs lieux
+
 CREATE VIEW activities_with_places AS
 SELECT 
     a.*,
@@ -304,7 +315,7 @@ LEFT JOIN places p ON ap.placeId = p.id
 WHERE a.isActive = 1
 GROUP BY a.id;
 
--- Vue pour les statistiques des lieux
+
 CREATE VIEW places_stats AS
 SELECT 
     p.*,
@@ -317,7 +328,7 @@ LEFT JOIN favorite_places fp ON p.id = fp.placeId
 WHERE p.isActive = 1
 GROUP BY p.id;
 
--- Vue pour les activités populaires
+
 CREATE VIEW popular_activities AS
 SELECT 
     a.*,
