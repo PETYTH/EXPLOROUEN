@@ -1,17 +1,15 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/database';
 
 export class UsersService {
-  private prisma: PrismaClient;
-
   constructor() {
-    this.prisma = new PrismaClient();
+    // Utilisation de l'instance Prisma centralisée
   }
 
   // Récupérer les statistiques d'un utilisateur
   async getUserStats(userId: string) {
     try {
       // Compter les activités auxquelles l'utilisateur est inscrit
-      const registeredActivities = await this.prisma.registration.count({
+      const registeredActivities = await prisma.registration.count({
         where: { 
           userId,
           type: 'ACTIVITY'
@@ -19,7 +17,7 @@ export class UsersService {
       });
 
       // Compter les activités complétées
-      const completedActivities = await this.prisma.registration.count({
+      const completedActivities = await prisma.registration.count({
         where: { 
           userId,
           type: 'ACTIVITY',
@@ -34,7 +32,7 @@ export class UsersService {
       const easterEggs = Math.floor(completedActivities * 0.8);
 
       // Autres statistiques (simulation)
-      const activeActivities = await this.prisma.registration.count({
+      const activeActivities = await prisma.registration.count({
         where: { 
           userId,
           type: 'ACTIVITY',

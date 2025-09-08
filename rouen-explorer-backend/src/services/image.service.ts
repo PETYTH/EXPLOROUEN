@@ -1,9 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/database';
 // import { config } from '../config'; // Temporairement commenté car non utilisé
-
-const prisma = new PrismaClient();
 
 export class ImageService {
     static async saveImageToDatabase(filePath: string, originalName: string, mimeType: string, size: number, entityType: 'activity' | 'place' | 'user', entityId?: string) {

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/database';
 import { clerkClient } from '@clerk/clerk-sdk-node';
 
 interface AuthenticatedRequest extends Request {
@@ -7,8 +7,6 @@ interface AuthenticatedRequest extends Request {
     userId: string;
   };
 }
-
-const prisma = new PrismaClient();
 
 export class MessagesController {
   // Récupérer les messages d'une discussion d'activité
