@@ -7,7 +7,6 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { connectDatabase } from './utils/database';
-import { connectMongoDB } from './config/mongodb';
 import { errorHandler, sanitizeInput } from './middleware/security.middleware';
 import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
@@ -186,18 +185,12 @@ const startServer = async () => {
         await connectDatabase();
         console.log('✅ Base de données connectée');
 
-        // Connexion MongoDB optionnelle
-        if (config.mongodb.url) {
-            console.log('🔌 Connexion à MongoDB...');
-            await connectMongoDB();
-            console.log('✅ MongoDB connecté');
-            
-            // Démarrer les tâches de nettoyage automatique seulement en production
-            if (config.nodeEnv === 'production') {
-                CleanupJob.start();
-            }
-        } else {
-            console.log('⚠️ MongoDB non configuré, continuant sans MongoDB');
+        // Désactiver MongoDB temporairement pour le déploiement
+        console.log('⚠️ MongoDB temporairement désactivé pour le déploiement');
+        
+        // Démarrer les tâches de nettoyage automatique seulement en production
+        if (config.nodeEnv === 'production') {
+            // CleanupJob.start(); // Désactivé temporairement
         }
 
         console.log('🚀 Démarrage du serveur...');
