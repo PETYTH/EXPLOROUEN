@@ -5,8 +5,8 @@ WORKDIR /app
 # Copier package.json et package-lock.json
 COPY package*.json ./
 
-# Installer les dépendances
-RUN npm ci --only=production
+# Installer les dépendances (incluant devDependencies pour le build)
+RUN npm ci
 
 # Copier le schema Prisma
 COPY prisma ./prisma/
@@ -19,6 +19,9 @@ COPY . .
 
 # Build de l'application TypeScript
 RUN npm run build
+
+# Supprimer les devDependencies après le build
+RUN npm prune --production
 
 # Exposer le port
 EXPOSE 10000
