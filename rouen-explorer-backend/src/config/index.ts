@@ -62,17 +62,15 @@ export const config = {
     redisUrl: process.env.REDIS_URL || '',
 
     // JWT
-    jwtSecret: process.env.JWT_SECRET || 'norman-explorer-super-secret-key-change-in-production',
-    jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'norman-refresh-super-secret-key',
+    jwtSecret: process.env.JWT_SECRET,
+    jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
     jwtExpiresIn: '15m',
     jwtRefreshExpiresIn: '7d',
 
     // Sécurité
     bcryptRounds: 12,
     corsOrigin: [
-        process.env.FRONTEND_URL || 'https://explorouen-frontend.onrender.com',
-        'https://explorouen-frontend.onrender.com',
-        '*' // Autoriser toutes les origines pour le développement
+        process.env.FRONTEND_URL || 'https://explorouen.netlify.app',
     ],
 
     // Email
