@@ -1,10 +1,11 @@
 // Service Worker for ExploRouen PWA
-const CACHE_NAME = 'explorouen-v1';
+const CACHE_NAME = 'explorouen-v2';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/assets/images/ExploRouen.svg',
+  '/assets/images/ExploRouen.png',
   '/assets/images/vieux-marche.jpg',
   '/assets/images/icon.png',
   '/manifest.json'

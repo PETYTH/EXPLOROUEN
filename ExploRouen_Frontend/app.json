@@ -34,22 +34,21 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/ExploRouen.png",
-      "name": "ExploRouen",
+      "name": "ExploRouen - Découvrez Rouen",
       "shortName": "ExploRouen",
       "lang": "fr",
       "scope": "/",
-      "themeColor": "#1F2937",
-      "backgroundColor": "#1F2937",
-      "display": "fullscreen",
+      "themeColor": "#8B5CF6",
+      "backgroundColor": "#8B5CF6",
+      "display": "standalone",
       "orientation": "portrait",
       "startUrl": "/",
       "preferRelatedApplications": false,
       "splash": {
         "image": "./assets/images/vieux-marche.jpg",
         "resizeMode": "cover",
-        "backgroundColor": "#1F2937"
-      },
-      "manifestPath": "./manifest.json"
+        "backgroundColor": "#8B5CF6"
+      }
     },
     "plugins": [
       "expo-router", 
