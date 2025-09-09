@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Home, ArrowLeft } from 'lucide-react-native';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function NotFoundScreen() {
   const { colors } = useTheme();
