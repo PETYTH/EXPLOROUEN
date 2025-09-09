@@ -19,6 +19,8 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 
+import Logo from '../assets/images/ExploRouen.svg'; // <-- import du SVG en composant
+
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
@@ -89,11 +91,12 @@ export default function SplashScreen() {
         <View style={styles.content}>
           {/* Logo */}
           <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-            <Image 
+            {/* <Image 
               source={require('../assets/images/ExploRouen.svg')}
               style={styles.logoImage}
               resizeMode="contain"
-            />
+            /> */}
+            <Logo width={200} height={200} />
           </Animated.View>
 
           {/* Loading indicator */}

@@ -33,7 +33,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/ExploRouen.svg",
+      "favicon": "./assets/images/ExploRouen.png",
       "name": "ExploRouen",
       "shortName": "ExploRouen",
       "lang": "fr",
