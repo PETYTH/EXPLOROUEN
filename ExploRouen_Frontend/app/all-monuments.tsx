@@ -12,16 +12,17 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-} from 'react-native';
+}from 'react-native';
 import { router } from 'expo-router';
 import { Search, MapPin, Clock, Filter, Plus, ChevronRight, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInRight, FadeInUp, SlideInRight } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@clerk/clerk-expo';
 import ApiService from '@/services/api';
 import StarRating from '@/components/StarRating';
 import FloatingMenu from '@/components/FloatingMenu';
+import PageTransition from '@/components/PageTransition';
 import { useRole } from '../hooks/useRole';
 
 export default function AllMonumentsScreen() {
@@ -170,21 +171,29 @@ export default function AllMonumentsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
-        <View style={styles.headerTop}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Monuments</Text>
-          {isAdmin && (
-            <TouchableOpacity 
-              style={[styles.modernCreateButton, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => router.push('/create-monument')}
+    <PageTransition isVisible={true} animationType="slideUp" duration={500}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
+          <View style={styles.headerTop}>
+            <Animated.Text 
+              entering={SlideInRight.delay(200).springify().damping(15).stiffness(100)} 
+              style={[styles.headerTitle, { color: colors.text }]}
             >
-              <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </Animated.View>
+              Monuments
+            </Animated.Text>
+            {isAdmin && (
+              <Animated.View entering={FadeInUp.delay(300).springify().damping(20)}>
+                <TouchableOpacity 
+                  style={[styles.modernCreateButton, { backgroundColor: '#8B5CF6' }]}
+                  onPress={() => router.push('/create-monument')}
+                >
+                  <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </View>
+        </Animated.View>
 
       {/* Search Bar */}
       <Animated.View entering={FadeInDown.delay(200)} style={styles.searchSection}>
@@ -375,7 +384,8 @@ export default function AllMonumentsScreen() {
       </Modal>
       
       <FloatingMenu />
-    </SafeAreaView>
+      </SafeAreaView>
+    </PageTransition>
   );
 }
 

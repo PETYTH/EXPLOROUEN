@@ -80,47 +80,30 @@ export default function SplashScreen() {
     <View style={styles.container}>
       {/* Background Image */}
       <Image 
-        source={require('../assets/images/cathedrale-rouen.png')}
+        source={require('../assets/images/vieux-marche.jpg')}
         style={styles.backgroundImage}
       />
       
       {/* Overlay */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.8)']}
-        style={styles.gradient}
-      >
-        {/* Background pattern */}
-        <Animated.View style={[styles.backgroundPattern, backgroundAnimatedStyle]}>
-          <View style={styles.circle1} />
-          <View style={styles.circle2} />
-          <View style={styles.circle3} />
-        </Animated.View>
-
+      <View style={styles.darkOverlay}>
         <View style={styles.content}>
           {/* Logo */}
           <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-            <View style={styles.logo}>
-              <Image 
-                source={require('../assets/images/ExploRouen-Logo.svg')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
+            <Image 
+              source={require('../assets/images/ExploRouen.svg')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </Animated.View>
 
-          {/* Title */}
-          <Animated.View style={titleAnimatedStyle}>
-            <Text style={styles.title}>ExploRouen</Text>
-            <Text style={styles.subtitle}>Découvrez Rouen</Text>
-          </Animated.View>
+          {/* Loading indicator */}
+          <View style={styles.loadingContainer}>
+            <Animated.View style={logoAnimatedStyle}>
+              <ActivityIndicator size="large" color="#8B5CF6" />
+            </Animated.View>
+          </View>
         </View>
-
-        {/* Loading indicator */}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={styles.loadingText}>Chargement...</Text>
-        </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -139,42 +122,14 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
-  gradient: {
-    flex: 1,
-  },
-  backgroundPattern: {
+  darkOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  circle1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    top: -50,
-    right: -50,
-  },
-  circle2: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(168, 85, 247, 0.08)',
-    bottom: 100,
-    left: -30,
-  },
-  circle3: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(192, 132, 252, 0.06)',
-    top: '40%',
-    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -183,39 +138,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   logoContainer: {
-    marginBottom: 40,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
   },
   logoImage: {
-    width: 80,
-    height: 80,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    letterSpacing: -1.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    letterSpacing: 0.5,
+    width: 200,
+    height: 200,
   },
   loadingContainer: {
     position: 'absolute',

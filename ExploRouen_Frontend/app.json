@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/vieux-marche.jpg",
+      "image": "./assets/images/vieux-marche.jpg",
       "resizeMode": "cover",
-      "backgroundColor": "#667EEA"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
@@ -33,17 +33,23 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/images/ExploRouen.svg",
       "name": "ExploRouen",
       "shortName": "ExploRouen",
       "lang": "fr",
       "scope": "/",
-      "themeColor": "#8B5CF6",
-      "backgroundColor": "#ffffff",
-      "display": "standalone",
+      "themeColor": "#1F2937",
+      "backgroundColor": "#1F2937",
+      "display": "fullscreen",
       "orientation": "portrait",
       "startUrl": "/",
-      "preferRelatedApplications": false
+      "preferRelatedApplications": false,
+      "splash": {
+        "image": "./assets/images/vieux-marche.jpg",
+        "resizeMode": "cover",
+        "backgroundColor": "#1F2937"
+      },
+      "manifestPath": "./manifest.json"
     },
     "plugins": [
       "expo-router", 

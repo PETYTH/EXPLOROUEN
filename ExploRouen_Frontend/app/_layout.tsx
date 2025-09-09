@@ -8,9 +8,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // import { initDatabase } from '../services/sqliteStorage'; // Commenté temporairement
 
 // ⬇️ On conserve TES imports nommés
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { ChatProvider } from '@/contexts/ChatContext';
-import { ActivityProvider } from '@/contexts/ActivityProvider';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { ChatProvider } from '../contexts/ChatContext';
+import { ActivityProvider } from '../contexts/ActivityProvider';
 
 // Ta clé Clerk (depuis .env)
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
@@ -106,19 +106,61 @@ function InitialLayout() {
             <ThemeProvider>
                 <ActivityProvider>
                     <ChatProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="splash" />
-                        <Stack.Screen name="get-started" />
-                        <Stack.Screen name="(auth)" />
-                        <Stack.Screen name="(tabs)" />
-                        <Stack.Screen name="activity/[id]" />
-                        <Stack.Screen name="monument/[id]" />
-                        <Stack.Screen name="all-monuments" />
-                        <Stack.Screen name="create-activity" />
-                        <Stack.Screen name="create-monument" />
-                        <Stack.Screen name="contact" />
-                        <Stack.Screen name="notifications" />
-                        <Stack.Screen name="+not-found" />
+                    <Stack screenOptions={{ 
+                        headerShown: false,
+                        animation: 'slide_from_right',
+                        animationDuration: 400,
+                        gestureEnabled: true,
+                        gestureDirection: 'horizontal'
+                    }}>
+                        <Stack.Screen 
+                            name="splash" 
+                            options={{ animation: 'fade' }}
+                        />
+                        <Stack.Screen 
+                            name="get-started" 
+                            options={{ animation: 'slide_from_bottom' }}
+                        />
+                        <Stack.Screen 
+                            name="(auth)" 
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen 
+                            name="(tabs)" 
+                            options={{ animation: 'fade' }}
+                        />
+                        <Stack.Screen 
+                            name="activity/[id]" 
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen 
+                            name="monument/[id]" 
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen 
+                            name="all-monuments" 
+                            options={{ animation: 'slide_from_bottom' }}
+                        />
+                        <Stack.Screen 
+                            name="create-activity" 
+                            options={{ animation: 'slide_from_bottom' }}
+                        />
+                        <Stack.Screen 
+                            name="create-monument" 
+                            options={{ animation: 'slide_from_bottom' }}
+                        />
+                        <Stack.Screen 
+                            name="contact" 
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen 
+                            name="notifications" 
+                            options={{ animation: 'slide_from_right' }}
+                        />
+                        <Stack.Screen 
+                            name="+not-found" 
+                            options={{ animation: 'fade' }}
+                        />
                     </Stack>
                     </ChatProvider>
                 </ActivityProvider>
