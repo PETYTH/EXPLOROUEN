@@ -20,7 +20,7 @@ async function main() {
   await prisma.place.deleteMany({});
   try { await prisma.image.deleteMany({}); } catch { /* optionnel */ }
 
-  // ---------- PLACES (points d’intérêt utilisables par les activités) ----------
+  // ---------- PLACES ----------
   const places = await Promise.all([
     prisma.place.create({
       data: {
@@ -91,7 +91,7 @@ async function main() {
           'https://images.unsplash.com/photo-1582719508461-905c673771fd?q=80&w=1600',
         ]),
         estimatedDuration: 45,
-        entryPrice: 7.5,
+        entryPrice: 7.5, // mapped -> entryprice
       },
     }),
     prisma.place.create({
@@ -187,7 +187,6 @@ async function main() {
 
   // ---------- MONUMENTS (20) ----------
   const monumentsData = [
-    // 1
     {
       name: 'Cathédrale Notre-Dame',
       description:
@@ -213,7 +212,6 @@ async function main() {
         'Un petit diable se cache au portail des Libraires',
       ]),
     },
-    // 2
     {
       name: 'Gros-Horloge',
       description:
@@ -228,18 +226,13 @@ async function main() {
       address: 'Rue du Gros-Horloge, 76000 Rouen',
       openingHours: '10h-19h (lun fermé)',
       price: '7,5€',
-      highlights: JSON.stringify([
-        'Cadran Renaissance 1529',
-        'Vue panoramique',
-      ]),
+      highlights: JSON.stringify(['Cadran Renaissance 1529', 'Vue panoramique']),
       history: 'Beffroi XIVe, cadran ajouté au XVe–XVIe.',
       easterEggHints: JSON.stringify(['Agneau pascal sur le cadran']),
     },
-    // 3
     {
       name: 'Église Saint-Maclou',
-      description:
-        'Gothique flamboyant, portes Renaissance réputées.',
+      description: 'Gothique flamboyant, portes Renaissance réputées.',
       image:
         'https://images.unsplash.com/photo-1577717903315-1691ae25ab3f?q=80&w=1600',
       rating: 4.5,
@@ -254,7 +247,6 @@ async function main() {
       history: 'XVᵉ–XVIᵉ, sommet du flamboyant normand.',
       easterEggHints: JSON.stringify(['Salamandres de François Ier']),
     },
-    // 4
     {
       name: 'Abbatiale Saint-Ouen',
       description: 'Gothique rayonnant, orgue Cavaillé-Coll.',
@@ -272,7 +264,6 @@ async function main() {
       history: 'XIVe–XVe, abbaye fondée au VIIIe.',
       easterEggHints: JSON.stringify(['Labyrinthe gravé']),
     },
-    // 5
     {
       name: 'Place du Vieux-Marché',
       description: "Lieu du supplice de Jeanne d'Arc (1431).",
@@ -293,11 +284,9 @@ async function main() {
       history: 'Ancienne place commerçante médiévale.',
       easterEggHints: JSON.stringify(['Fleurs de lys dans les pavés']),
     },
-    // 6
     {
       name: 'Maisons à Colombages',
-      description:
-        'Architecture civile XVe–XVIe sur la rue du Gros-Horloge.',
+      description: 'Architecture civile XVe–XVIe sur la rue du Gros-Horloge.',
       image:
         'https://images.unsplash.com/photo-1571631072485-ee6f9bb8d82f?q=80&w=1600',
       rating: 4.4,
@@ -312,7 +301,6 @@ async function main() {
       history: 'Prospérité marchande de la ville médiévale.',
       easterEggHints: JSON.stringify(['Licorne sculptée']),
     },
-    // 7
     {
       name: 'Donjon de Rouen',
       description:
@@ -331,7 +319,6 @@ async function main() {
       history: 'XIIIe, fortification royale.',
       easterEggHints: JSON.stringify(['Marques de tailleurs']),
     },
-    // 8
     {
       name: 'Musée des Beaux-Arts',
       description: 'Collections majeures (Monet, Caravage…).',
@@ -349,7 +336,6 @@ async function main() {
       history: 'Fondé en 1801, agrandi au XXe.',
       easterEggHints: JSON.stringify(['Autoportrait caché']),
     },
-    // 9
     {
       name: 'Rue Eau-de-Robec',
       description:
@@ -368,7 +354,6 @@ async function main() {
       history: 'Ancien quartier des tanneurs.',
       easterEggHints: JSON.stringify(['Symbole de tannerie']),
     },
-    // 10
     {
       name: 'Pont Gustave-Flaubert',
       description: 'Pont levant emblématique avec vues sur la Seine.',
@@ -386,7 +371,6 @@ async function main() {
       history: 'Mis en service en 2008.',
       easterEggHints: JSON.stringify(['Mesurez la levée !']),
     },
-    // 11
     {
       name: 'Jardin des Plantes',
       description: 'Grand jardin botanique du XIXe, serres tropicales.',
@@ -404,7 +388,6 @@ async function main() {
       history: 'Ouvert en 1840.',
       easterEggHints: JSON.stringify(['Plante “mimosa pudica”']),
     },
-    // 12
     {
       name: 'Aître Saint-Maclou',
       description: 'Ossuaire renaissance, sculptures macabres.',
@@ -422,7 +405,6 @@ async function main() {
       history: 'XVIe, suite aux épidémies de peste.',
       easterEggHints: JSON.stringify(['Crâne sculpté discret']),
     },
-    // 13
     {
       name: 'Hôtel de Bourgtheroulde',
       description: 'Manoir Renaissance à riches décors sculptés.',
@@ -440,7 +422,6 @@ async function main() {
       history: 'Début XVIe, style Renaissance.',
       easterEggHints: JSON.stringify(['Bas-relief “Camp du Drap d’Or”']),
     },
-    // 14
     {
       name: 'Église Saint-Patrice',
       description: 'Vitraux remarquables des XVe–XVIe.',
@@ -458,7 +439,6 @@ async function main() {
       history: 'Bâtie du XVe au XVIe.',
       easterEggHints: JSON.stringify(['Ange minuscule dans un vitrail']),
     },
-    // 15
     {
       name: 'Église Sainte-Jeanne-d’Arc',
       description:
@@ -477,7 +457,6 @@ async function main() {
       history: 'Architecture de Louis Arretche.',
       easterEggHints: JSON.stringify(['Poisson dans les vitraux']),
     },
-    // 16
     {
       name: 'Musée Flaubert & d’Histoire de la Médecine',
       description:
@@ -496,7 +475,6 @@ async function main() {
       history: 'Maison de chirurgien-chef, père de Flaubert.',
       easterEggHints: JSON.stringify(['Clin d’œil à “Madame Bovary”']),
     },
-    // 17
     {
       name: 'Place Saint-Marc',
       description: 'Grande place et marché animé.',
@@ -514,7 +492,6 @@ async function main() {
       history: 'Espace urbain majeur depuis le XIXe.',
       easterEggHints: JSON.stringify(['Stalle “meilleur fromage”']),
     },
-    // 18
     {
       name: 'Quais de la Seine',
       description: 'Promenade, street-art et vue sur l’Île Lacroix.',
@@ -532,7 +509,6 @@ async function main() {
       history: 'Aménagements récents pour la balade.',
       easterEggHints: JSON.stringify(['Tag “Rouen Love”']),
     },
-    // 19
     {
       name: 'Musée Le Secq des Tournelles',
       description: 'Art du fer du Moyen Âge au XXe.',
@@ -550,7 +526,6 @@ async function main() {
       history: 'Ancienne église, musée unique en son genre.',
       easterEggHints: JSON.stringify(['Clef géante cachée']),
     },
-    // 20
     {
       name: 'Église Saint-Ouen de Longueville (réplique locale)',
       description: 'Petit édifice rural typique, étape hors centre.',
@@ -574,11 +549,10 @@ async function main() {
     await prisma.monument.create({ data: m });
   }
 
-  // ---------- ACTIVITÉS (15) – dates futures 2025-10/11 ----------
-  const A = (iso: string) => new Date(iso); // raccourci
+  // ---------- ACTIVITÉS (15) ----------
+  const A = (iso: string) => new Date(iso);
 
   const activities = await Promise.all([
-    // CULTURE / HISTOIRE
     prisma.activity.create({
       data: {
         title: 'Circuit des Églises Gothiques',
@@ -743,8 +717,8 @@ async function main() {
         maxParticipants: 20,
         startDate: A('2025-10-18T09:00:00Z'),
         meetingPoint: 'Quais rive droite',
-        latitude: 49.4400,
-        longitude: 1.0850,
+        latitude: 49.44,
+        longitude: 1.085,
         price: 15,
         image:
           'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1600',
@@ -997,78 +971,25 @@ async function main() {
     });
   }
 
-  // ---------- activityPlace (liens clés) ----------
+  // ---------- activityPlace (liens) ----------
   const byTitle = (t: string) => activities.find((a) => a.title === t)!;
 
   await prisma.activityPlace.createMany({
     data: [
-      // Circuit des Églises Gothiques
-      {
-        activityId: byTitle('Circuit des Églises Gothiques').id,
-        placeId: places[0].id,
-        order: 1,
-        description: 'Cathédrale – lecture de façade',
-      },
-      {
-        activityId: byTitle('Circuit des Églises Gothiques').id,
-        placeId: places[1].id,
-        order: 2,
-        description: 'Saint-Maclou – flamboyant',
-      },
-      {
-        activityId: byTitle('Circuit des Églises Gothiques').id,
-        placeId: places[2].id,
-        order: 3,
-        description: 'Saint-Ouen – vitraux',
-      },
+      { activityId: byTitle('Circuit des Églises Gothiques').id, placeId: places[0].id, order: 1, description: 'Cathédrale – lecture de façade' },
+      { activityId: byTitle('Circuit des Églises Gothiques').id, placeId: places[1].id, order: 2, description: 'Saint-Maclou – flamboyant' },
+      { activityId: byTitle('Circuit des Églises Gothiques').id, placeId: places[2].id, order: 3, description: 'Saint-Ouen – vitraux' },
 
-      // Sur les Pas de Jeanne d’Arc
-      {
-        activityId: byTitle("Sur les Pas de Jeanne d'Arc").id,
-        placeId: places[4].id,
-        order: 1,
-        description: 'Vieux-Marché – martyre',
-      },
-      {
-        activityId: byTitle("Sur les Pas de Jeanne d'Arc").id,
-        placeId: places[5].id,
-        order: 2,
-        description: 'Donjon – mémoire du procès',
-      },
+      { activityId: byTitle("Sur les Pas de Jeanne d'Arc").id, placeId: places[4].id, order: 1, description: 'Vieux-Marché – martyre' },
+      { activityId: byTitle("Sur les Pas de Jeanne d'Arc").id, placeId: places[5].id, order: 2, description: 'Donjon – mémoire du procès' },
 
-      // Chasse Gros-Horloge
-      {
-        activityId: byTitle('Chasse aux Trésors : Mystères du Gros-Horloge')
-          .id,
-        placeId: places[3].id,
-        order: 1,
-        description: 'Cadran & beffroi',
-      },
+      { activityId: byTitle('Chasse aux Trésors : Mystères du Gros-Horloge').id, placeId: places[3].id, order: 1, description: 'Cadran & beffroi' },
 
-      // Musée & Impressionnisme
-      {
-        activityId: byTitle('Musée des Beaux-Arts – Focus Impressionnisme').id,
-        placeId: places[6].id,
-        order: 1,
-        description: 'Galeries Impressionnistes',
-      },
+      { activityId: byTitle('Musée des Beaux-Arts – Focus Impressionnisme').id, placeId: places[6].id, order: 1, description: 'Galeries Impressionnistes' },
 
-      // Croisière
-      {
-        activityId: byTitle('Croisière Commentée sur la Seine').id,
-        placeId: places[7].id,
-        order: 1,
-        description: 'Embarcadère',
-      },
+      { activityId: byTitle('Croisière Commentée sur la Seine').id, placeId: places[7].id, order: 1, description: 'Embarcadère' },
 
-      // Photo Walk Eau-de-Robec
-      {
-        activityId:
-          byTitle('Photo Walk – Rue Eau-de-Robec au Couché du Soleil').id,
-        placeId: places[6 /* musée */].id,
-        order: 1,
-        description: 'Point de rendez-vous alternatif',
-      },
+      { activityId: byTitle('Photo Walk – Rue Eau-de-Robec au Couché du Soleil').id, placeId: places[6].id, order: 1, description: 'Point de rendez-vous alternatif' },
     ],
   });
 
@@ -1076,55 +997,51 @@ async function main() {
   const treasureHunts = [
     {
       title: 'Mystères de la Cathédrale',
-      description:
-        'Déchiffrez les symboles cachés dans la cathédrale Notre-Dame.',
+      description: 'Déchiffrez les symboles cachés dans la cathédrale Notre-Dame.',
       period: 'Médiéval',
       startDate: new Date('2024-01-15T09:00:00Z'),
       endDate: new Date('2024-12-31T18:00:00Z'),
       difficulty: 'HARD',
       prize: 'Visite guidée privée de la cathédrale',
       prizeValue: 50.0,
-      maxParticipants: 20,
       rules: 'Respecter les lieux de culte, photos autorisées sans flash',
+      isActive: true,
     },
     {
       title: 'Trésor des Impressionnistes',
-      description:
-        '30 points de vue, variations de lumière, palette normande.',
+      description: '30 points de vue, variations de lumière, palette normande.',
       period: 'XIXe siècle',
       startDate: new Date('2024-03-01T10:00:00Z'),
       endDate: new Date('2024-10-31T17:00:00Z'),
       difficulty: 'MEDIUM',
       prize: 'Kit de peinture impressionniste',
       prizeValue: 35.0,
-      maxParticipants: 15,
       rules: 'Matériel de dessin recommandé, respect des propriétés privées',
+      isActive: true,
     },
     {
       title: 'Secrets de la Seine',
-      description:
-        'Ponts, port fluvial, îles et mémoire du fleuve.',
+      description: 'Ponts, port fluvial, îles et mémoire du fleuve.',
       period: 'Contemporain',
       startDate: new Date('2024-04-01T08:00:00Z'),
       endDate: new Date('2024-11-30T19:00:00Z'),
       difficulty: 'MEDIUM',
       prize: 'Croisière sur la Seine',
       prizeValue: 25.0,
-      maxParticipants: 25,
       rules: 'Chaussures de marche conseillées, attention aux berges',
+      isActive: true,
     },
     {
       title: "Sur les Traces de Jeanne d'Arc",
-      description:
-        'Parcours historique : prison, procès, martyre, postérité.',
+      description: 'Parcours historique : prison, procès, martyre, postérité.',
       period: 'Médiéval',
       startDate: new Date('2024-02-01T09:00:00Z'),
       endDate: new Date('2024-11-15T17:00:00Z'),
       difficulty: 'MEDIUM',
       prize: 'Livre historique dédicacé',
       prizeValue: 30.0,
-      maxParticipants: 18,
       rules: 'Respect des sites historiques, silence dans les lieux de mémoire',
+      isActive: true,
     },
   ];
 

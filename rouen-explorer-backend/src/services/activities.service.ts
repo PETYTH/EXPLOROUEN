@@ -19,6 +19,7 @@ interface CreateActivityData {
     type: string;
     difficulty: string;
     duration: number;
+    maxParticipants: number;
     startDate: Date;
     endDate?: Date;
     meetingPoint: string;
@@ -232,6 +233,7 @@ export class ActivitiesService {
                 type: data.type,
                 difficulty: data.difficulty,
                 duration: data.duration,
+                maxParticipants: data.maxParticipants,
                 startDate: data.startDate,
                 endDate: data.endDate,
                 meetingPoint: data.meetingPoint,
@@ -276,12 +278,26 @@ export class ActivitiesService {
             where: { id: activityId },
             select: {
                 id: true,
-                startDate: true
+                startDate: true,
+                maxParticipants: true
             }
         });
 
         if (!activity) {
             throw new Error('Activité non trouvée');
+        }
+
+        // Compter les inscriptions séparément
+        const registrationCount = await prisma.registration.count({
+            where: {
+                itemId: activityId,
+                type: 'ACTIVITY',
+                status: 'ACCEPTED'
+            }
+        });
+
+        if (registrationCount >= activity.maxParticipants) {
+            throw new Error('Activité complète');
         }
 
         if (activity.startDate < new Date()) {

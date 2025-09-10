@@ -144,6 +144,7 @@ export class MapsService {
                 startDate: true,
                 endDate: true,
                 price: true,
+                maxParticipants: true,
             }
         });
 
@@ -174,7 +175,7 @@ export class MapsService {
                 latitude: activity.latitude,
                 longitude: activity.longitude
             },
-            availableSpots: null
+            availableSpots: activity.maxParticipants
         }));
     }
 

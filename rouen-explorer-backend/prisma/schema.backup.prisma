@@ -10,20 +10,20 @@ datasource db {
 model Image {
   id           String   @id @default(cuid())
   filename     String
-  originalName String   @map("originalname")
-  mimeType     String   @map("mimetype")
+  originalName String
+  mimeType     String
   size         Int
   data         String
-  entityType   String   @map("entitytype")
-  entityId     String?  @map("entityid")
-  createdAt    DateTime @default(now()) @map("createdat")
-  updatedAt    DateTime @updatedAt      @map("updatedat")
+  entityType   String
+  entityId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("images")
 }
 
 model Place {
-  id                String   @id @default(cuid())
+  id                String              @id @default(cuid())
   name              String
   description       String
   address           String
@@ -31,19 +31,18 @@ model Place {
   longitude         Float
   category          String
   images            String?
-  audioGuide        String?  @map("audioguide")
-  isActive          Boolean  @default(true) @map("isactive")
-  openingHours      String?  @map("openinghours")
-  historicalPeriod  String?  @map("historicalperiod")
+  audioGuide        String?
+  isActive          Boolean             @default(true)
+  openingHours      String?
+  historicalPeriod  String?
   accessibility     String?
   website           String?
   phone             String?
   email             String?
-  entryPrice        Float?   @map("entryprice")
-  estimatedDuration Int?     @map("estimatedduration")
-  createdAt         DateTime @default(now()) @map("createdat")
-  updatedAt         DateTime @updatedAt      @map("updatedat")
-
+  entryPrice        Float?
+  estimatedDuration Int?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   activityPlaces    ActivityPlace[]
   favorites         FavoritePlace[]
   reviews           Review[]
@@ -51,7 +50,6 @@ model Place {
 
   @@map("places")
 }
-
 model Activity {
   id              String   @id @default(cuid())
   title           String
@@ -60,8 +58,8 @@ model Activity {
   difficulty      String
   duration        Int
   distance        Float?
-  maxParticipants Int      @map("maxparticipants")
-  startDate       DateTime @map("startdate")
+  maxParticipants Int      @map("maxparticipants") // correspond à la colonne
+  startDate       DateTime @map("startdate")       // correspond à la colonne
   endDate         DateTime? @map("enddate")
   meetingPoint    String   @map("meetingpoint")
   latitude        Float
@@ -85,13 +83,14 @@ model Activity {
   @@map("activities")
 }
 
+
+
 model ActivityPlace {
   id          String   @id @default(cuid())
-  activityId  String   @map("activityid")
-  placeId     String   @map("placeid")
+  activityId  String
+  placeId     String
   order       Int
   description String?
-
   place       Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
   activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -105,18 +104,18 @@ model Monument {
   description    String
   image          String
   rating         Float
-  visitDuration  String   @map("visitduration")
+  visitDuration  String
   category       String
   latitude       Float
   longitude      Float
   address        String
-  openingHours   String   @map("openinghours")
+  openingHours   String
   price          String
   highlights     String
   history        String
-  easterEggHints String?  @map("easteregghints")
-  createdAt      DateTime @default(now()) @map("createdat")
-  updatedAt      DateTime @updatedAt      @map("updatedat")
+  easterEggHints String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("monuments")
 }
@@ -126,30 +125,28 @@ model TreasureHunt {
   title           String
   description     String
   period          String
-  startDate       DateTime @map("startdate")
-  endDate         DateTime @map("enddate")
+  startDate       DateTime
+  endDate         DateTime
   difficulty      String
   prize           String?
-  prizeValue      Float?   @map("prizevalue")   // ✅ mapping ajouté
-  isActive        Boolean  @default(true) @map("isactive")
+  prizeValue      Float?
+  isActive        Boolean             @default(true)
   rules           String?
-  createdAt       DateTime @default(now()) @map("createdat")
-  updatedAt       DateTime @updatedAt      @map("updatedat")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
   places          TreasureHuntPlace[]
 
   @@map("treasure_hunts")
 }
 
-
 model TreasureHuntPlace {
   id             String       @id @default(cuid())
-  treasureHuntId String       @map("treasurehuntid")
-  placeId        String       @map("placeid")
+  treasureHuntId String
+  placeId        String
   order          Int
   clue           String
   solution       String?
   points         Int          @default(10)
-
   place          Place        @relation(fields: [placeId], references: [id], onDelete: Cascade)
   treasureHunt   TreasureHunt @relation(fields: [treasureHuntId], references: [id], onDelete: Cascade)
 
@@ -159,14 +156,14 @@ model TreasureHuntPlace {
 
 model Registration {
   id          String    @id @default(cuid())
-  userId      String    @map("userid")
+  userId      String
   type        String
-  itemId      String    @map("itemid")
+  itemId      String
   status      String    @default("PENDING")
   score       Int?
-  completedAt DateTime? @map("completedat")
-  createdAt   DateTime  @default(now()) @map("createdat")
-  updatedAt   DateTime  @updatedAt      @map("updatedat")
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([userId, itemId, type])
   @@map("registrations")
@@ -174,12 +171,11 @@ model Registration {
 
 model Discussion {
   id         String              @id @default(cuid())
-  activityId String?             @unique @map("activityid")
+  activityId String?             @unique
   title      String
-  isActive   Boolean             @default(true) @map("isactive")
-  createdAt  DateTime            @default(now()) @map("createdat")
-  updatedAt  DateTime            @updatedAt      @map("updatedat")
-
+  isActive   Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
   messages   DiscussionMessage[]
   activity   Activity?           @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
@@ -188,16 +184,15 @@ model Discussion {
 
 model DiscussionMessage {
   id           String     @id @default(cuid())
-  discussionId String     @map("discussionid")
-  userId       String     @map("userid")
+  discussionId String
+  userId       String
   content      String
-  messageType  String     @default("TEXT") @map("messagetype")
-  mediaUrl     String?    @map("mediaurl")
-  thumbnailUrl String?    @map("thumbnailurl")
+  messageType  String     @default("TEXT")
+  mediaUrl     String?
+  thumbnailUrl String?
   attachments  String?
-  createdAt    DateTime   @default(now()) @map("createdat")
-  updatedAt    DateTime   @updatedAt      @map("updatedat")
-
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
 
   @@map("discussion_messages")
@@ -205,15 +200,14 @@ model DiscussionMessage {
 
 model Review {
   id           String   @id @default(cuid())
-  userId       String   @map("userid")
-  placeId      String   @map("placeid")
+  userId       String
+  placeId      String
   rating       Int
   comment      String?
   images       String?
-  helpfulCount Int      @default(0) @map("helpfulcount")
-  createdAt    DateTime @default(now()) @map("createdat")
-  updatedAt    DateTime @updatedAt      @map("updatedat")
-
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   place        Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
@@ -222,70 +216,59 @@ model Review {
 
 model FavoritePlace {
   id        String   @id @default(cuid())
-  userId    String   @map("userid")
-  placeId   String   @map("placeid")
-  createdAt DateTime @default(now()) @map("createdat")
-
+  userId    String
+  placeId   String
+  createdAt DateTime @default(now())
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
   @@map("favorite_places")
 }
 
-model chats {
-  id                String   @id
-  activityId        String?  @map("activityid")
-  type              String   @default("GROUP")
-  name              String?
-  isActive          Boolean  @default(true) @map("isactive")
-  createdAt         DateTime @default(now()) @map("createdat")
-  updatedAt         DateTime @map("updatedat")
-
-  chat_participants chat_participants[]
-  messages          messages[]
-
-  @@map("chats")
-}
-
 model chat_participants {
-  id       String   @id
-  chatId   String   @map("chatid")
-  userId   String   @map("userid")
-  joinedAt DateTime @default(now()) @map("joinedat")
-  leftAt   DateTime? @map("leftat")
-
-  chats    chats    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  id       String    @id
+  chatId   String
+  userId   String
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  chats    chats     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@unique([chatId, userId])
-  @@map("chat_participants")
+}
+
+model chats {
+  id                String              @id
+  activityId        String?
+  type              String              @default("GROUP")
+  name              String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  chat_participants chat_participants[]
+  messages          messages[]
 }
 
 model messages {
   id          String   @id
-  chatId      String   @map("chatid")
-  userId      String   @map("userid")
+  chatId      String
+  userId      String
   content     String
-  messageType String   @default("TEXT") @map("messagetype")
-  mediaUrl    String?  @map("mediaurl")
-  isRead      Boolean  @default(false) @map("isread")
-  createdAt   DateTime @default(now()) @map("createdat")
-  updatedAt   DateTime @map("updatedat")
-
+  messageType String   @default("TEXT")
+  mediaUrl    String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
   chats       chats    @relation(fields: [chatId], references: [id], onDelete: Cascade)
-
-  @@map("messages")
 }
 
 model notifications {
   id        String   @id
-  userId    String   @map("userid")
+  userId    String
   type      String
   title     String
   message   String
   data      String?
-  isRead    Boolean  @default(false) @map("isread")
-  createdAt DateTime @map("createdat")
-  updatedAt DateTime @map("updatedat")
-
-  @@map("notifications")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
 }
