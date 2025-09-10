@@ -77,6 +77,40 @@ class RedisClient {
     public getClient(): Redis {
         return this.client;
     }
+
+    // Méthode pour obtenir des données en cache
+    public async getCache(key: string): Promise<any> {
+        try {
+            const data = await this.client.get(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Erreur lors de la récupération du cache:', error);
+            return null;
+        }
+    }
+
+    // Méthode pour mettre en cache des données
+    public async setCache(key: string, value: any, ttlSeconds: number = 300): Promise<boolean> {
+        try {
+            await this.client.set(
+                key,
+                JSON.stringify(value),
+                'EX',
+                ttlSeconds
+            );
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de la mise en cache:', error);
+            return false;
+        }
+    }
 }
 
-export const redis = RedisClient.getInstance();
+const redisClient = RedisClient.getInstance();
+
+// Fonctions d'aide pour la compatibilité avec le code existant
+export const getCache = (key: string) => redisClient.getCache(key);
+export const setCache = (key: string, value: any, ttlSeconds: number = 300) => 
+    redisClient.setCache(key, value, ttlSeconds);
+
+export const redis = redisClient;
