@@ -59,7 +59,6 @@ model Activity {
   difficulty      String
   duration        Int
   distance        Float?
-  maxParticipants Int
   startDate       DateTime
   endDate         DateTime?
   meetingPoint    String
@@ -129,7 +128,6 @@ model TreasureHunt {
   prize           String?
   prizeValue      Float?
   isActive        Boolean             @default(true)
-  maxParticipants Int?
   rules           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt

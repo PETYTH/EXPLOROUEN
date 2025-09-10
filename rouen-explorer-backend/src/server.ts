@@ -187,16 +187,16 @@ io.on('connection', (socket) => {
     });
 });
 
-// Middleware de gestion des erreurs (doit être en dernier)
-app.use(errorHandler);
-
-// 404 handler
+// 404 handler (doit être APRÈS toutes les routes)
 app.use('*', (_req, res) => {
     res.status(404).json({
         success: false,
         message: 'Route non trouvée'
     });
 });
+
+// Middleware de gestion des erreurs (doit être en dernier)
+app.use(errorHandler);
 
 // Démarrage du serveur
 const startServer = async () => {

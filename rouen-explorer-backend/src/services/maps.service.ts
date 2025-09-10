@@ -137,13 +137,13 @@ export class MapsService {
                 difficulty: true,
                 duration: true,
                 distance: true,
+                image: true,
                 latitude: true,
                 longitude: true,
                 meetingPoint: true,
                 startDate: true,
                 endDate: true,
                 price: true,
-                maxParticipants: true,
             }
         });
 
@@ -174,7 +174,7 @@ export class MapsService {
                 latitude: activity.latitude,
                 longitude: activity.longitude
             },
-            availableSpots: activity.maxParticipants
+            availableSpots: null
         }));
     }
 
