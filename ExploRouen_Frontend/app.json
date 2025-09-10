@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -37,17 +37,17 @@
       "name": "ExploRouen - Découvrez Rouen",
       "shortName": "ExploRouen",
       "lang": "fr",
-      "scope": "/",
-      "themeColor": "#8B5CF6",
-      "backgroundColor": "#8B5CF6",
-      "display": "standalone",
+      "scope": "./",
+      "themeColor": "#FFFFFF",
+      "backgroundColor": "#FFFFFF",
+      "display": "fullscreen",
       "orientation": "portrait",
       "startUrl": ".",
       "preferRelatedApplications": false,
       "splash": {
         "image": "./assets/images/vieux-marche.jpg",
         "resizeMode": "cover",
-        "backgroundColor": "#8B5CF6"
+        "backgroundColor": "#FFFFFF"
       }
     },
     "plugins": [
@@ -57,8 +57,10 @@
       "expo-location",
       "expo-camera"
     ],
+    
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "PETYTH PRINCE"
   }
 }

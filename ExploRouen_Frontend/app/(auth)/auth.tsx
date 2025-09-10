@@ -713,7 +713,7 @@ export default function AuthScreen() {
                 {/* First Name Input - Only for Register */}
                 {!isLogin && (
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color="#8B5CF6" style={styles.inputIcon} />
                     <TextInput
                       ref={firstNameRef}
                       style={styles.input}
@@ -735,7 +735,7 @@ export default function AuthScreen() {
                 {/* Last Name Input - Only for Register */}
                 {!isLogin && (
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color="#8B5CF6" style={styles.inputIcon} />
                     <TextInput
                       ref={lastNameRef}
                       style={styles.input}
@@ -756,7 +756,7 @@ export default function AuthScreen() {
 
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color="#8B5CF6" style={styles.inputIcon} />
                   <TextInput
                     ref={emailRef}
                     style={styles.input}
@@ -778,7 +778,7 @@ export default function AuthScreen() {
 
                 {/* Password Input */}
                 <View style={styles.inputContainer}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color="#8B5CF6" style={styles.inputIcon} />
                   <TextInput
                     ref={passwordRef}
                     style={[styles.input, styles.passwordInput]}
@@ -807,7 +807,7 @@ export default function AuthScreen() {
                     <Ionicons 
                       name={showPassword ? "eye-off-outline" : "eye-outline"} 
                       size={20} 
-                      color="#9CA3AF" 
+                      color="#8B5CF6" 
                     />
                   </TouchableOpacity>
                 </View>
@@ -817,7 +817,7 @@ export default function AuthScreen() {
                 {!isLogin && (
                   <>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#8B5CF6" style={styles.inputIcon} />
                       <TextInput
                         ref={confirmPasswordRef}
                         style={[styles.input, styles.passwordInput]}
@@ -839,7 +839,7 @@ export default function AuthScreen() {
                         <Ionicons 
                           name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
                           size={20} 
-                          color="#9CA3AF" 
+                          color="#8B5CF6" 
                         />
                       </TouchableOpacity>
                     </View>

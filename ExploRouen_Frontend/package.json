@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
-    "build:web": "npx expo export --platform web && powershell Copy-Item public\\sw.js dist\\sw.js; powershell Copy-Item public\\manifest.webmanifest dist\\manifest.webmanifest",
+    "build:web": "npx expo export --platform web && powershell Copy-Item public\\sw.js dist\\sw.js; powershell Copy-Item public\\manifest.webmanifest dist\\manifest.webmanifest; powershell Copy-Item -Recurse public\\icon dist\\icon",
     "lint": "expo lint"
   },
   "dependencies": {

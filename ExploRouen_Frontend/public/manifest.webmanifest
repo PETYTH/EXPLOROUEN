@@ -3,10 +3,10 @@
   "short_name": "ExploRouen",
   "description": "Découvrez Rouen et ses trésors cachés - Activités, monuments et chat en temps réel",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
-  "theme_color": "#8B5CF6",
-  "background_color": "#8B5CF6",
+  "theme_color": "#00000000",
+  "background_color": "#000000",
   "scope": "/",
   "lang": "fr",
   "icons": [
