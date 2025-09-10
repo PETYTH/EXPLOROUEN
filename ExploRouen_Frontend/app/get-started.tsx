@@ -146,13 +146,14 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingBottom: 100,
   },
   textContent: {
     alignItems: 'center',
-    marginBottom: 60,
+    marginTop: '30%',
   },
   title: {
     fontSize: 28,
@@ -194,7 +195,8 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     paddingHorizontal: 32,
-    paddingBottom: 40,
+    paddingBottom: 60,
+    marginTop: -30,
     gap: 16,
   },
   primaryButton: {
