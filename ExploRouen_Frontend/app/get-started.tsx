@@ -54,7 +54,7 @@ export default function GetStartedScreen() {
     <View style={styles.container}>
       {/* Image de fond plein écran */}
       <Image 
-        source={require('../assets/images/Horloge.png')}
+        source={require('../assets/images/Horloge.jpg')}
         style={styles.backgroundImage}
       />
       

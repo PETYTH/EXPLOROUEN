@@ -42,7 +42,7 @@
       "backgroundColor": "#8B5CF6",
       "display": "standalone",
       "orientation": "portrait",
-      "startUrl": "/",
+      "startUrl": ".",
       "preferRelatedApplications": false,
       "splash": {
         "image": "./assets/images/vieux-marche.jpg",

@@ -17,10 +17,7 @@ export class ImagePreloader {
       require('../assets/images/vieux-marche.jpg'),
       require('../assets/images/cathedrale-rouen.jpg'),
       require('../assets/images/colombage.jpg'),
-      require('../assets/images/ExploRouen.png'),
-      require('../assets/images/icon.png'),
-      require('../assets/images/placeholder.png'),
-      require('../assets/images/Horloge.png'),
+       require('../assets/images/Horloge.jpg'),
     ];
   }
 

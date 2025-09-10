@@ -19,7 +19,7 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 
-import Logo from '../assets/images/ExploRouen.svg'; // <-- import du SVG en composant
+import Logo from '../assets/images/ExploRouen-Logo.svg'; // <-- import du SVG en composant
 import { imagePreloader } from '../utils/imagePreloader';
 
 const { width, height } = Dimensions.get('window');
@@ -27,7 +27,6 @@ const { width, height } = Dimensions.get('window');
 export default function SplashScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [loadingText, setLoadingText] = useState('Chargement...');
   
   const logoScale = useSharedValue(0.5);
   const logoOpacity = useSharedValue(0);
@@ -43,30 +42,12 @@ export default function SplashScreen() {
   useEffect(() => {
     const preloadImages = async () => {
       try {
-        setLoadingText('Préparation des images...');
-        
-        // Simuler le progrès pendant le chargement
-        const progressInterval = setInterval(() => {
-          const currentProgress = imagePreloader.getLoadingProgress();
-          setLoadingProgress(currentProgress);
-          
-          if (currentProgress >= 100) {
-            clearInterval(progressInterval);
-          }
-        }, 100);
-
         // Précharger toutes les images critiques
         await imagePreloader.preloadAllCriticalImages();
-        
-        clearInterval(progressInterval);
-        setLoadingProgress(100);
-        setLoadingText('Images prêtes !');
         setImagesLoaded(true);
         
-        // Attendre un peu avant de démarrer les animations
-        setTimeout(() => {
-          startAnimations();
-        }, 500);
+        // Démarrer les animations
+        startAnimations();
         
       } catch (error) {
         console.error('Erreur lors du préchargement:', error);
@@ -136,11 +117,6 @@ export default function SplashScreen() {
         <View style={styles.content}>
           {/* Logo */}
           <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-            {/* <Image 
-              source={require('../assets/images/ExploRouen.svg')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            /> */}
             <Logo width={280} height={280} />
           </Animated.View>
 
@@ -149,18 +125,6 @@ export default function SplashScreen() {
             <Animated.View style={logoAnimatedStyle}>
               <ActivityIndicator size="large" color="#8B5CF6" />
             </Animated.View>
-            <Text style={styles.loadingText}>{loadingText}</Text>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${loadingProgress}%` }
-                  ]} 
-                />
-              </View>
-              <Text style={styles.progressText}>{loadingProgress}%</Text>
-            </View>
           </View>
         </View>
       </View>
@@ -201,10 +165,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoImage: {
-    width: 200,
-    height: 200,
-  },
   loadingContainer: {
     position: 'absolute',
     bottom: 80,
@@ -212,45 +172,16 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#8B5CF6',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-  },
-  loadingBar: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  loadingProgress: {
-    height: '100%',
-    backgroundColor: '#8B5CF6',
-    borderRadius: 2,
-    width: '100%',
-  },
-  progressContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-    width: '80%',
-  },
   progressBar: {
     width: '100%',
     height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 8,
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#8B5CF6',
     borderRadius: 3,
-  },
-  progressText: {
-    color: '#8B5CF6',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

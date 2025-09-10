@@ -13,6 +13,8 @@ import {
   Image,
   ImageBackground,
   Keyboard,
+  Animated,
+  Easing
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +77,10 @@ export default function AuthScreen() {
   const confirmPasswordRef = useRef<TextInput>(null);
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   // Load remember me preference and saved email on component mount
   useEffect(() => {
@@ -199,7 +205,39 @@ export default function AuthScreen() {
   };
 
   const switchMode = () => {
-    setIsLogin(!isLogin);
+    // Start fade out animation
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: isLogin ? -20 : 20,
+        duration: 0,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      // Toggle between login and signup
+      setIsLogin(!isLogin);
+      
+      // Start fade in and slide animations
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic)
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40
+        })
+      ]).start();
+    });
+    
     // Clear fields when switching
     setEmailAddress('');
     setPassword('');
@@ -584,11 +622,36 @@ export default function AuthScreen() {
     );
   }
 
+  const rememberMeButtonStyle = {
+    ...styles.rememberMeButton,
+    backgroundColor: rememberMe ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
+    borderColor: rememberMe ? '#8B5CF6' : '#E5E7EB',
+  };
+  
+  const rememberMeCheckStyle = {
+    ...styles.rememberMeCheck,
+    backgroundColor: rememberMe ? '#8B5CF6' : 'transparent',
+    borderColor: rememberMe ? '#8B5CF6' : '#9CA3AF',
+  };
+
+  const formAnimatedStyle = {
+    opacity: fadeAnim,
+    transform: [
+      { translateX: slideAnim },
+      {
+        scale: fadeAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.95, 1],
+        }),
+      },
+    ],
+  };
+
   return (
     <View style={styles.container}>
       {/* Background Image */}
       <Image 
-        source={require('../../assets/images/cathedrale-rouen.png')}
+        source={require('../../assets/images/cathedrale-rouen.jpg')}
         style={styles.backgroundImage}
       />
       <View style={styles.overlay} />
@@ -628,7 +691,7 @@ export default function AuthScreen() {
                 <View style={styles.switchBackground}>
                   <TouchableOpacity
                     style={[styles.toggleButton, isLogin && styles.activeToggle]}
-                    onPress={() => setIsLogin(true)}
+                    onPress={() => !isLogin && switchMode()}
                   >
                     <Text style={[styles.toggleText, isLogin && styles.activeToggleText]}>
                       Connexion
@@ -636,7 +699,7 @@ export default function AuthScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.toggleButton, !isLogin && styles.activeToggle]}
-                    onPress={() => setIsLogin(false)}
+                    onPress={() => isLogin && switchMode()}
                   >
                     <Text style={[styles.toggleText, !isLogin && styles.activeToggleText]}>
                       Inscription
@@ -646,7 +709,7 @@ export default function AuthScreen() {
               </View>
 
               {/* Form */}
-              <View style={styles.form}>
+              <Animated.View style={[styles.form, formAnimatedStyle]}>
                 {/* First Name Input - Only for Register */}
                 {!isLogin && (
                   <View style={styles.inputContainer}>
@@ -786,19 +849,18 @@ export default function AuthScreen() {
 
                 {/* Remember Me - Only for Login */}
                 {isLogin && (
-                  <View style={styles.checkboxContainer}>
-                    <TouchableOpacity
-                      style={styles.checkbox}
-                      onPress={handleRememberMeToggle}
-                    >
-                      <Ionicons
-                        name={rememberMe ? "checkbox" : "square-outline"}
-                        size={20}
-                        color={rememberMe ? "#8B5CF6" : "#666"}
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.checkboxText}>Se souvenir de moi</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={rememberMeButtonStyle}
+                    onPress={handleRememberMeToggle}
+                    activeOpacity={0.8}
+                  >
+                    <View style={rememberMeCheckStyle}>
+                      {rememberMe && (
+                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                      )}
+                    </View>
+                    <Text style={styles.rememberMeText}>Se souvenir de moi</Text>
+                  </TouchableOpacity>
                 )}
 
                 {/* Image Captcha - For both Login and Register */}
@@ -878,7 +940,7 @@ export default function AuthScreen() {
                   </TouchableOpacity>
                 </View>
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -964,7 +1026,6 @@ const styles = StyleSheet.create({
   toggleButton: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 21,
     alignItems: 'center',
   },
@@ -1173,5 +1234,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     marginLeft: 16,
+  },
+  rememberMeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    borderColor: '#E5E7EB',
+    alignSelf: 'flex-start',
+  },
+  rememberMeCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rememberMeText: {
+    color: '#F3F4F6',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
