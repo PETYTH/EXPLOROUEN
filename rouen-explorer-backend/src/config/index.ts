@@ -55,7 +55,10 @@ export const config = {
     },
 
     // Redis
-    redisUrl: process.env.REDIS_URL || '',
+    redis: {
+        url: process.env.REDIS_URL || 'redis://localhost:6379',
+        ttl: 86400 // 24h en secondes
+    },
 
     // JWT
     jwtSecret: process.env.JWT_SECRET,
