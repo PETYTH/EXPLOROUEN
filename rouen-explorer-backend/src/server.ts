@@ -114,6 +114,34 @@ app.get('/health', (_req, res) => {
     });
 });
 
+// Route racine
+app.get('/', (_req, res) => {
+    res.json({
+        success: true,
+        message: 'ExploRouen API - Backend is running',
+        version: '1.0.0',
+        endpoints: {
+            health: '/health',
+            api: '/api/*'
+        }
+    });
+});
+
+// Route pour tester les API
+app.get('/api', (_req, res) => {
+    res.json({
+        success: true,
+        message: 'ExploRouen API endpoints',
+        endpoints: [
+            '/api/activities',
+            '/api/places', 
+            '/api/monuments',
+            '/api/auth',
+            '/api/users'
+        ]
+    });
+});
+
 // WebSocket pour le chat en temps réel
 io.on('connection', (socket) => {
     // Client connecté
