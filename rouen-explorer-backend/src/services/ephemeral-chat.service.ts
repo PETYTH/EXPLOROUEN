@@ -1,4 +1,3 @@
-// src/services/ephemeral-chat.service.ts
 import { ChatMessage } from '../models/mongodb/ChatMessage';
 import { NotificationService } from './notification.service';
 import { prisma } from '../utils/database';
@@ -26,10 +25,10 @@ export class EphemeralChatService {
             });
 
             await message.save();
-            
+
             // Notifier les participants en ligne
             await this.notifyParticipants(data.roomId, data.userId, 'new_message');
-            
+
             return message;
         } catch (error) {
             console.error('Erreur création message éphémère:', error);
@@ -76,8 +75,8 @@ export class EphemeralChatService {
                 deletedAt: { $exists: false }
             }).sort({ createdAt: 1 });
 
-            const syncedMessages = [];
-            
+            const syncedMessages: any[] = []; // <- typé
+
             for (const message of offlineMessages) {
                 // Marquer comme synchronisé
                 const messageDoc = message as any;
@@ -86,7 +85,7 @@ export class EphemeralChatService {
                     messageDoc.metadata.syncedAt = new Date();
                 }
                 await message.save();
-                
+
                 // Notifier les participants
                 await this.notifyParticipants(message.roomId, userId, 'message_synced');
                 syncedMessages.push(message);
@@ -115,21 +114,19 @@ export class EphemeralChatService {
             const isActivityEnded = activity.endDate ? activity.endDate < now : false;
 
             if (isActivityEnded) {
-                // Marquer les messages comme supprimés (soft delete)
                 await ChatMessage.updateMany(
-                    { 
+                    {
                         roomId: `activity_${activityId}`,
                         deletedAt: { $exists: false }
                     },
-                    { 
-                        $set: { 
+                    {
+                        $set: {
                             deletedAt: now,
                             'metadata.deletionReason': 'activity_ended'
                         }
                     }
                 );
 
-                // Messages de l'activité supprimés automatiquement
                 return true;
             }
 
@@ -156,21 +153,19 @@ export class EphemeralChatService {
             const isHuntEnded = treasureHunt.endDate ? treasureHunt.endDate < now : false;
 
             if (isHuntEnded) {
-                // Marquer les messages comme supprimés (soft delete)
                 await ChatMessage.updateMany(
-                    { 
+                    {
                         roomId: `treasure_hunt_${treasureHuntId}`,
                         deletedAt: { $exists: false }
                     },
-                    { 
-                        $set: { 
+                    {
+                        $set: {
                             deletedAt: now,
                             'metadata.deletionReason': 'treasure_hunt_ended'
                         }
                     }
                 );
 
-                // Messages de la chasse aux trésors supprimés automatiquement
                 return true;
             }
 
@@ -182,27 +177,23 @@ export class EphemeralChatService {
     }
 
     // Récupérer les messages d'une room avec support hors ligne
-    static async getRoomMessages(roomId: string, userId?: string, options: {
-        limit?: number;
-        offset?: number;
-        includeOffline?: boolean;
-    } = {}) {
+    static async getRoomMessages(
+        roomId: string,
+        userId?: string,
+        options: { limit?: number; offset?: number; includeOffline?: boolean } = {}
+    ) {
         try {
             const { limit = 50, offset = 0, includeOffline = false } = options;
-            
+
             let query: any = {
                 roomId,
                 deletedAt: { $exists: false }
             };
 
-            // Si on veut inclure les messages hors ligne de l'utilisateur
             if (includeOffline && userId) {
                 query.$or = [
                     { 'metadata.createdOffline': { $ne: true } },
-                    { 
-                        'metadata.createdOffline': true,
-                        userId: userId
-                    }
+                    { 'metadata.createdOffline': true, userId: userId }
                 ];
             } else {
                 query['metadata.createdOffline'] = { $ne: true };
@@ -224,51 +215,30 @@ export class EphemeralChatService {
     // Tâche de nettoyage automatique (à exécuter périodiquement)
     static async runCleanupTask() {
         try {
-            // Démarrage du nettoyage automatique des messages éphémères
-
-            // Récupérer toutes les activités terminées
             const endedActivities = await prisma.activity.findMany({
-                where: {
-                    endDate: {
-                        lt: new Date()
-                    },
-                    isActive: true
-                },
+                where: { endDate: { lt: new Date() }, isActive: true },
                 select: { id: true }
             });
 
-            // Récupérer toutes les chasses aux trésors terminées
             const endedTreasureHunts = await prisma.treasureHunt.findMany({
-                where: {
-                    endDate: {
-                        lt: new Date()
-                    },
-                    isActive: true
-                },
+                where: { endDate: { lt: new Date() }, isActive: true },
                 select: { id: true }
             });
 
             let cleanedActivities = 0;
             let cleanedTreasureHunts = 0;
 
-            // Nettoyer les messages des activités terminées
             for (const activity of endedActivities) {
                 const cleaned = await this.cleanupActivityMessages(activity.id);
                 if (cleaned) cleanedActivities++;
             }
 
-            // Nettoyer les messages des chasses aux trésors terminées
             for (const treasureHunt of endedTreasureHunts) {
                 const cleaned = await this.cleanupTreasureHuntMessages(treasureHunt.id);
                 if (cleaned) cleanedTreasureHunts++;
             }
 
-            // Nettoyage terminé
-            
-            return {
-                cleanedActivities,
-                cleanedTreasureHunts
-            };
+            return { cleanedActivities, cleanedTreasureHunts };
         } catch (error) {
             console.error('Erreur lors du nettoyage automatique:', error);
             throw error;
@@ -278,33 +248,28 @@ export class EphemeralChatService {
     // Notifier les participants d'une room
     private static async notifyParticipants(roomId: string, senderId: string, eventType: string) {
         try {
-            // Récupérer les participants actifs de la room
-            const recentMessages = await ChatMessage.find({
+            // IDs distincts des 24 dernières heures
+            const recentMessages: string[] = await (ChatMessage as any).find({
                 roomId,
                 deletedAt: { $exists: false },
-                createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // 24h
+                createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
             }).distinct('userId');
 
-            const participants = recentMessages.filter(userId => userId !== senderId);
+            const participants = recentMessages.filter((userId: string) => userId !== senderId);
 
-            // Envoyer des notifications
             for (const participantId of participants) {
                 await NotificationService.createNotification({
                     userId: participantId,
                     type: 'new_message',
                     title: 'Nouveau message',
                     message: 'Un nouveau message dans votre conversation',
-                    data: {
-                        roomId,
-                        eventType,
-                        senderId
-                    },
+                    data: { roomId, eventType, senderId },
                     channels: ['in_app']
                 });
             }
         } catch (error) {
             console.error('Erreur notification participants:', error);
-            // Ne pas faire échouer l'opération principale
+            // on ne fait pas échouer l'opération principale
         }
     }
 }
