@@ -1,6 +1,6 @@
 // src/services/activities.service.ts
 import { prisma } from '../utils/database';
-import { getCache, setCache } from '../utils/redis';
+// import { getCache, setCache } from '../utils/redis'; // Désactivé temporairement
 
 interface ActivityFilters {
     type?: string;
@@ -55,12 +55,13 @@ interface UpdateActivityData {
 
 export class ActivitiesService {
     static async getAllActivities(filters: ActivityFilters = {}, userId?: string) {
-        const cacheKey = `activities:${JSON.stringify(filters)}:${userId || 'anonymous'}`;
-        const cached = await getCache(cacheKey);
+        // Cache temporairement désactivé
+        // const cacheKey = `activities:${JSON.stringify(filters)}:${userId || 'anonymous'}`;
+        // const cached = await getCache(cacheKey);
 
-        if (cached) {
-            return cached;
-        }
+        // if (cached) {
+        //     return cached;
+        // }
 
         let whereClause: any = {
             isActive: true
@@ -159,7 +160,7 @@ export class ActivitiesService {
         });
 
         // Cache pour 5 minutes
-        await setCache(cacheKey, activitiesWithDistance, 300);
+        // await setCache(cacheKey, activitiesWithDistance, 300);
 
         return activitiesWithDistance;
     }

@@ -25,6 +25,15 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
         const token = authHeader.substring(7);
 
+        // Vérifier que le secret JWT est configuré
+        if (!config.jwtSecret) {
+            console.error('JWT_SECRET non configuré');
+            return res.status(500).json({
+                success: false,
+                message: 'Configuration serveur manquante'
+            });
+        }
+
         // Vérifier le token JWT
         const decoded = jwt.verify(token, config.jwtSecret) as any;
 
