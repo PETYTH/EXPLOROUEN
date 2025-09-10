@@ -31,12 +31,8 @@ console.log('🔧 Variables d\'environnement chargées:', {
   DATABASE_URL: process.env.DATABASE_URL ? '***' : 'non défini',
   JWT_SECRET: process.env.JWT_SECRET ? '***' : 'non défini',
   REDIS_URL: process.env.REDIS_URL || 'non défini',
-  RESEND_API_KEY: process.env.RESEND_API_KEY ? '***' : 'non défini',
-  FROM_EMAIL: process.env.FROM_EMAIL || 'non défini',
   FRONTEND_URL: process.env.FRONTEND_URL || 'non défini',
   MONGODB_URL: process.env.MONGODB_URL || 'non défini',
-  MAILTRAP_USER: process.env.MAILTRAP_USER ? '***' : 'non défini',
-  MAILTRAP_PASS: process.env.MAILTRAP_PASS ? '***' : 'non défini',
   CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY ? '***' : 'non défini',
   CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ? '***' : 'non défini'
 });
@@ -70,18 +66,9 @@ export const config = {
     // Sécurité
     bcryptRounds: 12,
     corsOrigin: [
-        process.env.FRONTEND_URL || 'https://explorouen.netlify.app',
+        process.env.FRONTEND_URL || 'http://localhost:3000' || 'https://locahost:8081',
     ],
 
-    // Email
-    emailService: {
-        apiKey: process.env.RESEND_API_KEY || '',
-        from: process.env.FROM_EMAIL || 'contact@explorouen.fr',
-        provider: process.env.EMAIL_PROVIDER || 'resend',
-        mailtrapUser: process.env.MAILTRAP_USER || '',
-        mailtrapPass: process.env.MAILTRAP_PASS || '',
-        mailtrapHost: process.env.MAILTRAP_HOST || 'sandbox.smtp.mailtrap.io'
-    } as const,
 
     // Upload
     uploadPath: process.env.UPLOAD_PATH || './uploads',
@@ -91,7 +78,7 @@ export const config = {
     // Rate limiting
     rateLimits: {
         windowMs: 15 * 60 * 1000, // 15 minutes
-        maxRequests: 10000000
+        maxRequests: 1000
     },
 
     // Clerk
