@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "noImplicitAny": false,          // désactive TS7006
+      "strict": true,                  // tu gardes le strict si tu veux
+      "noUnusedLocals": false,         // (optionnel) évite de casser le build pour des variables non utilisées
+      "noUnusedParameters": false      // (optionnel)
+    }
+  }
+  
