@@ -1,40 +1,25 @@
-FROM node:18
+FROM node:18-alpine
 
-# Install OpenSSL libraries and other dependencies required by Prisma
-RUN apt-get update && apt-get install -y \
-    openssl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
+# Définir le répertoire de travail
 WORKDIR /app
 
-# Copier package.json et package-lock.json
+# Copier les fichiers de dépendances
 COPY package*.json ./
 
-# Installer les dépendances (incluant devDependencies pour le build)
-RUN npm ci
-
-# Copier le schema Prisma
-COPY prisma ./prisma/
+# Installer les dépendances
+RUN npm ci --only=production
 
 # Copier le code source
 COPY . .
 
+# Construire l'application
+RUN npm run build
+
 # Générer le client Prisma
 RUN npx prisma generate
 
-# Build de l'application TypeScript
-RUN npm run build
-
-# Supprimer les devDependencies après le build
-RUN npm prune --production
-
 # Exposer le port
 EXPOSE 10000
-
-# Variables d'environnement par défaut
-ENV NODE_ENV=production
-ENV PORT=10000
 
 # Commande de démarrage
 CMD ["npm", "start"]
