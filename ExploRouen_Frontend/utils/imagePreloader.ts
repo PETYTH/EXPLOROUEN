@@ -14,10 +14,10 @@ export class ImagePreloader {
   // Liste de toutes les images critiques à précharger
   private getCriticalImages(): string[] {
     return [
-      require('../assets/images/vieux-marche.jpg'),
+      require('../assets/images/Rouen.jpg'),
       require('../assets/images/cathedrale-rouen.jpg'),
       require('../assets/images/colombage.jpg'),
-       require('../assets/images/Horloge.jpg'),
+      require('../assets/images/Horloge.jpg'),
     ];
   }
 

@@ -4,12 +4,12 @@
     "slug": "explorouen",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-152-ios.png",
     "scheme": "explorouen",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/vieux-marche.jpg",
+      "image": "./assets/images/Rouen.jpg",
       "resizeMode": "cover",
       "backgroundColor": "#000000"
     },
@@ -33,8 +33,8 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/ExploRouen.png",
-      "name": "ExploRouen - Découvrez Rouen",
+      "favicon": "./assets/images/ExploRouen-Logo.png",
+      "name": "ExploRouen",
       "shortName": "ExploRouen",
       "lang": "fr",
       "scope": "./",
@@ -45,7 +45,7 @@
       "startUrl": ".",
       "preferRelatedApplications": false,
       "splash": {
-        "image": "./assets/images/vieux-marche.jpg",
+        "image": "./assets/images/Rouen.jpg",
         "resizeMode": "cover",
         "backgroundColor": "#FFFFFF"
       }

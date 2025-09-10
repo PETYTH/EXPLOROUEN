@@ -108,7 +108,7 @@ export default function SplashScreen() {
     <View style={styles.container}>
       {/* Background Image */}
       <Image 
-        source={require('../assets/images/vieux-marche.jpg')}
+        source={require('../assets/images/Rouen.jpg')}
         style={styles.backgroundImage}
       />
       

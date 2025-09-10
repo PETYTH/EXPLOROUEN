@@ -146,14 +146,16 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingBottom: 100,
   },
   textContent: {
     alignItems: 'center',
-    marginTop: '30%',
+    justifyContent: 'center',
+    flex: 1,
+    width: '100%',
+    paddingBottom: 20, // Espacement sous le contenu
   },
   title: {
     fontSize: 28,
@@ -182,6 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
+    marginTop: 20, // Espacement au-dessus de la pagination
+    marginBottom: 0, // Réinitialiser la marge du bas
   },
   dot: {
     width: 8,
@@ -194,10 +198,11 @@ const styles = StyleSheet.create({
     width: 24,
   },
   buttonsContainer: {
+    width: '100%',
     paddingHorizontal: 32,
     paddingBottom: 60,
-    marginTop: -30,
-    gap: 16,
+    position: 'absolute',
+    bottom: 0,
   },
   primaryButton: {
     borderRadius: 16,

@@ -1,15 +1,5 @@
-// Service Worker for ExploRouen PWA
-// const urlsToCache = [
-//   '/',
-//   '/assets/images/ExploRouen.svg',
-//   '/assets/images/vieux-marche.jpg',
-//   '/assets/images/cathedrale-rouen.png',
-//   '/assets/images/colombage.jpg',
-//   '/assets/images/Horloge.png',
-// ];
-
 const CACHE_NAME = 'explorouen-v3';
-const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/icon/icon-192-android.png', '/icon/icon-512-android.png', '/icon/icon-192-ios.png', '/icon/icon-512-ios.png'];
+const PRECACHE_URLS = ['/', '/manifest.webmanifest','icon/icon-192-android.png', 'icon/icon-152-ios.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(PRECACHE_URLS)));

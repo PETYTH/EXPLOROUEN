@@ -1,55 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-      <link rel="manifest" href="/manifest.webmanifest" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="transparent" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+    <!-- Plein écran + safe areas -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no" />
 
     <title>ExploRouen</title>
 
-    <link rel="apple-touch-icon" href="/icon/icon-152-ios.png" />
-    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <link rel="icon" href="/icon/icon-152-ios.png" />
+
+    <!-- reset minimal -->
     <style id="expo-reset">
-      /* These styles make the body full-height */
-      html,
-      body {
-        height: 100%;
-      }
-      /* These styles disable body scrolling if you are using <ScrollView> */
-      body {
-        overflow: hidden;
-      }
-      /* These styles make the root element full-height */
-      #root {
-        display: flex;
-        height: 100%;
-        flex: 1;
+      html, body { height: 100%; margin: 0; }
+      body { overflow: hidden; background:#000; }
+      #root { display: flex; height: 100%; flex: 1; }
+      /* Safe-areas pour TON CONTENU uniquement, pas pour le fond */
+      .content {
+        min-height: 100%;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
       }
     </style>
-  <meta name="theme-color" content="#8B5CF6">
-<link rel="icon" href="/icon/icon-152-ios.png" /></head>
+  </head>
 
   <body>
-    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
-    <noscript>
-      You need to enable JavaScript to run this app.
-    </noscript>
-    <!-- The root element for your Expo app. -->
+    <noscript>Vous devez activer JavaScript pour exécuter cette app.</noscript>
     <div id="root"></div>
-  <script src="/_expo/static/js/web/entry-cd9485664d39c64f2ebe4a28c04c217f.js" defer></script>
 
-   <script>
+    <!-- Laisse Expo injecter le bon bundle (évite de hardcoder le hash). -->
+
+    <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(console.error);
         });
       }
     </script>
-</body>
+  </body>
 </html>
