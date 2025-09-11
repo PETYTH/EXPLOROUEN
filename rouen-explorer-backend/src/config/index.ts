@@ -69,7 +69,7 @@ export const config = {
     // Sécurité
     bcryptRounds: 12,
     corsOrigin: [
-        process.env.FRONTEND_URL || 'http://localhost:3000' || 'https://locahost:8081',
+        process.env.FRONTEND_URL || 'https://locahost:8081',
     ],
 
 

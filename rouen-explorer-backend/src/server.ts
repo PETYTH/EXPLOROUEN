@@ -36,6 +36,7 @@ const io = new SocketIOServer(server, {
         credentials: true
     }
 });
+app.set('trust proxy', 1); 
 
 // Middlewares de sécurité
 app.use(helmet({
@@ -63,23 +64,22 @@ app.use(cors({
 }));
 
 // Rate limiting général - Configuration plus permissive pour le développement
+// Rate limiting (n'applique PAS aux routes publiques/health)
 const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: config.nodeEnv === 'production' ? 100 : 100000, // 1000 requêtes en dev, 100 en prod
-    message: {
-        success: false,
-        message: 'Trop de requêtes. Réessayez dans 15 minutes.'
-    },
+    windowMs: 15 * 60 * 1000,
+    max: config.nodeEnv === 'production' ? 1000 : 100000, // plus souple en prod
+    message: { success: false, message: 'Too many requests. Try later.' },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
-        // Désactiver le rate limiting pour les routes de développement
-        return config.nodeEnv === 'development' && req.ip === '127.0.0.1';
+      const p = req.path || '';
+      // pas de limite pour le health check, la racine, les fichiers statiques et le handshake WS
+      return p === '/health' || p === '/' || p.startsWith('/uploads') || p.startsWith('/socket.io');
     }
 });
 
-app.use(generalLimiter);
-app.use(compression());
+app.use('/api', generalLimiter);
+
 app.use(mongoSanitize());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -249,13 +249,14 @@ process.on('SIGINT', () => {
 
 process.on('uncaughtException', (error) => {
     console.error('❌ Exception non gérée:', error);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, _promise) => {
+    // ne pas quitter; log seulement (ou redémarre si critique connu)
+  });
+  
+  process.on('unhandledRejection', (reason) => {
     console.error('❌ Promesse rejetée non gérée:', reason);
-    process.exit(1);
-});
+    // idem, ne pas process.exit ici
+  });
+  
 
 startServer();
 
