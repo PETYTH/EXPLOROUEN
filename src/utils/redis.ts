@@ -4,14 +4,16 @@ import { config } from '../config';
 // Configuration Redis avec gestion d'erreur gracieuse
 let redis: Redis | null = null;
 
-// Désactiver Redis en mode développement pour éviter les erreurs en boucle
-if (config.nodeEnv === 'production') {
+// Redis optionnel - fonctionne sans si non disponible
+if (config.redis.url && config.redis.url !== 'redis://127.0.0.1:6379') {
     try {
         redis = new Redis(config.redis.url, {
-            maxRetriesPerRequest: 0,
+            maxRetriesPerRequest: 1,
+            retryStrategy: () => null, // Ne pas réessayer
             lazyConnect: true,
-            connectTimeout: 5000,
-            enableReadyCheck: false
+            connectTimeout: 3000,
+            enableReadyCheck: false,
+            enableOfflineQueue: false
         });
 
         redis.on('connect', () => {
@@ -19,20 +21,21 @@ if (config.nodeEnv === 'production') {
         });
 
         redis.on('error', (error) => {
-            console.warn('⚠️ Redis non disponible (mode dégradé):', error.message);
+            // Silencieux en production pour éviter les logs en boucle
+            if (config.nodeEnv !== 'production') {
+                console.warn('⚠️ Redis non disponible (mode dégradé):', error.message);
+            }
             redis = null;
         });
 
         redis.on('close', () => {
-            console.warn('⚠️ Connexion Redis fermée');
             redis = null;
         });
     } catch (error) {
-        console.warn('⚠️ Redis non disponible - Fonctionnement sans cache');
         redis = null;
     }
 } else {
-    console.log('⚠️ Redis désactivé en mode développement');
+    console.log('⚠️ Redis désactivé - Fonctionnement sans cache');
     redis = null;
 }
 
