@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
-import { StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Home, Calendar, MessageCircle, Map, User, Plus, Trash2, Search, Users, Lock } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useAuth } from '@clerk/clerk-expo';
 import chatService from '@/services/chatService';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useUser } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 interface ExtendedMessage {
   id: string;
@@ -36,6 +36,146 @@ interface ExtendedMessage {
   };
 }
 
+// Composant pour gérer chaque élément de la liste avec sa propre référence Swipeable
+const MessageItem = ({ conversation, index, chatType, isPrivate, colors, unreadMessages, navigateToChat, handleDeleteConversation, formatTime }: {
+  conversation: any;
+  index: number;
+  chatType: 'group' | 'private';
+  isPrivate: boolean;
+  colors: any;
+  unreadMessages: Map<string, any>;
+  navigateToChat: (chatId: string, chatType: 'group' | 'private', displayName?: string) => void;
+  handleDeleteConversation: (chatId: string, chatType: 'group' | 'private', swipeableRef?: React.RefObject<Swipeable | null>) => void;
+  formatTime: (timestamp: string) => string;
+}) => {
+  const swipeableRef = React.useRef<Swipeable>(null);
+
+  const renderRightActions = () => {
+    if (chatType === 'group') {
+      return null;
+    }
+    return (
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={() => {
+          handleDeleteConversation(conversation.id, chatType, swipeableRef);
+        }}
+      >
+        <Trash2 size={24} color="#FFFFFF" strokeWidth={2} />
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View>
+      <Swipeable ref={swipeableRef} renderRightActions={renderRightActions}>
+        <TouchableOpacity
+          style={[styles.messageCard, { backgroundColor: colors.surface }]}
+          onPress={() => navigateToChat(conversation.id, chatType, isPrivate ? conversation.organizerName : conversation.activityName)}
+        >
+          <View style={styles.profileRow}>
+            <View style={styles.profileAvatarContainer}>
+              <Image 
+                source={{ uri: isPrivate ? conversation.organizerAvatar : conversation.activityImage }} 
+                style={[styles.profileAvatar, { borderWidth: 3, borderColor: isPrivate ? '#1E40AF' : '#EAB308' }]}
+              />
+              {isPrivate ? (
+                <View style={[styles.typeIcon, { backgroundColor: '#1E40AF' }]}>
+                  <Lock size={9} color="#FFFFFF" strokeWidth={2} />
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={['#EAB308', '#FACC15']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.typeIcon}
+                >
+                  <Users size={9} color="#FFFFFF" strokeWidth={2} />
+                </LinearGradient>
+              )}
+              {!isPrivate && conversation.participants?.some((p: any) => p.isOnline) && (
+                <View style={styles.onlineIndicator} />
+              )}
+            </View>
+            
+            <View style={styles.profileInfo}>
+              <View style={styles.profileHeader}>
+                <Text style={[styles.profileName, { color: isPrivate ? '#1E40AF' : '#EAB308' }]} numberOfLines={1} ellipsizeMode="tail">
+                  {conversation.activityName || conversation.organizerName || 'Chat'}
+                </Text>
+                <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
+                  {conversation.lastMessage ? formatTime(conversation.lastMessage.createdAt || conversation.lastMessage.timestamp) : 'Nouveau'}
+                </Text>
+              </View>
+              <View style={styles.subtitleRow}>
+                <Text style={[styles.profileSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {conversation.lastMessage ? (
+                    conversation.lastMessage.messageType === 'IMAGE' ? '📷 Image' :
+                    conversation.lastMessage.messageType === 'VIDEO' ? '🎥 Vidéo' :
+                    conversation.lastMessage.content
+                  ) : (
+                    isPrivate ? 'Chat avec l\'organisateur' : `Groupe • ${conversation.participants?.length || 0} participants`
+                  )}
+                </Text>
+                {isPrivate ? (
+                  <LinearGradient
+                    colors={['#1E40AF', '#3B82F6']}
+                    style={styles.privateBadge}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.privateBadgeText}>PRIVÉ</Text>
+                  </LinearGradient>
+                ) : (
+                  <LinearGradient
+                    colors={['#EAB308', '#FACC15']}
+                    style={styles.groupBadge}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.groupBadgeText}>GROUPE</Text>
+                  </LinearGradient>
+                )}
+              </View>
+            </View>
+            
+            <View style={styles.profileAction}>
+              {(() => {
+                const chatId = conversation.id;
+                const unread = unreadMessages.get(chatId);
+                const count = unread?.count || conversation.unreadCount || 0;
+                
+                return count > 0 ? (
+                  isPrivate ? (
+                    <View style={[styles.unreadBadge, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.unreadText}>
+                        {count > 99 ? '99+' : count}
+                      </Text>
+                    </View>
+                  ) : (
+                    <LinearGradient
+                      colors={['#EAB308', '#FACC15']}
+                      style={styles.unreadBadge}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <Text style={styles.unreadText}>
+                        {count > 99 ? '99+' : count}
+                      </Text>
+                    </LinearGradient>
+                  )
+                ) : (
+                  <Text style={[styles.arrow, { color: colors.textSecondary }]}>›</Text>
+                );
+              })()}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Swipeable>
+    </View>
+  );
+};
+
 export default function MessagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState<'all' | 'groups' | 'private'>('all');
@@ -53,7 +193,7 @@ export default function MessagesScreen() {
   const { user } = useUser();
   const router = useRouter();
   const { getToken } = useAuth();
-
+  const { unreadMessages, refreshUnreadCounts } = useNotifications();
   const [chatRooms, setChatRooms] = useState<any[]>([]);
   const [privateChats, setPrivateChats] = useState<any[]>([]);
 
@@ -62,14 +202,16 @@ export default function MessagesScreen() {
     try {
       const token = await getToken();
       if (!token) {
-        console.warn('⚠️ No auth token available');
+        // Session expirée, nettoyer silencieusement
         setChatRooms([]);
         setPrivateChats([]);
         return;
       }
 
+      const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+
       // Utiliser l'endpoint conversations qui retourne tout
-      const conversationsResponse = await fetch(`http://192.168.1.62:5000/api/discussions/conversations`, {
+      const conversationsResponse = await fetch(`${API_URL}/discussions/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -77,22 +219,38 @@ export default function MessagesScreen() {
 
       if (conversationsResponse.ok) {
         const data = await conversationsResponse.json();
-        // console.log('📊 Conversations:', data);
         
         const groupChats = data.groupChats || [];
         const privateChats = data.privateChats || [];
         
         setChatRooms(groupChats);
         setPrivateChats(privateChats);
-        
-        // console.log('✅ Conversations loaded:', groupChats.length, 'group chats,', privateChats.length, 'private chats');
+
+        // Rejoindre les rooms des groupes pour le temps réel
+        groupChats.forEach((chat: any) => {
+          const activityId = chat.id.replace('activity-', '');
+          chatService.joinActivityChat(activityId);
+        });
+      } else if (conversationsResponse.status === 401) {
+        // Session expirée, nettoyer silencieusement sans afficher d'erreur
+        setChatRooms([]);
+        setPrivateChats([]);
       } else {
+        // Autres erreurs serveur
         setChatRooms([]);
         setPrivateChats([]);
       }
-    } catch (error) {
-      setChatRooms([]);
-      setPrivateChats([]);
+    } catch (error: any) {
+      // Gérer les erreurs silencieusement pour ne pas perturber l'utilisateur
+      if (error?.message?.includes('authenticate') || error?.status === 401) {
+        // Session expirée - pas de message d'erreur
+        setChatRooms([]);
+        setPrivateChats([]);
+      } else {
+        // Erreur réseau ou autre - nettoyer sans alerte
+        setChatRooms([]);
+        setPrivateChats([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -104,12 +262,23 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     chatService.connect();
+    if (user) {
+      chatService.identify(user.id);
+    }
     loadChatRooms();
     
     return () => {
-      chatService.disconnect();
+      // Ne pas déconnecter le socket ici car il est utilisé globalement par NotificationContext
+      // chatService.disconnect();
     };
   }, []);
+
+  // Recharger les conversations quand l'écran devient actif
+  useFocusEffect(
+    useCallback(() => {
+      loadChatRooms();
+    }, [])
+  );
 
   // Filtrer les conversations selon la recherche et l'onglet sélectionné
   const getFilteredConversations = () => {
@@ -137,7 +306,7 @@ export default function MessagesScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshChatRooms();
+    await Promise.all([refreshChatRooms(), refreshUnreadCounts()]);
     setRefreshing(false);
   };
 
@@ -197,7 +366,7 @@ export default function MessagesScreen() {
     router.push(`/chat/${correctedId}${params}`);
   };
 
-  const handleDeleteConversation = (chatId: string, chatType: 'group' | 'private') => {
+  const handleDeleteConversation = async (chatId: string, chatType: 'group' | 'private', swipeableRef?: React.RefObject<Swipeable | null>) => {
     // Empêcher la suppression des conversations de groupe
     if (chatType === 'group') {
       Alert.alert(
@@ -205,16 +374,20 @@ export default function MessagesScreen() {
         'Vous ne pouvez pas supprimer les conversations de groupe. Quittez l\'activité pour ne plus recevoir de messages.',
         [{ text: 'OK', style: 'default' }]
       );
+      swipeableRef?.current?.close();
       return;
     }
 
     Alert.alert(
-      'Supprimer la conversation privée',
-      'Êtes-vous sûr de vouloir supprimer cette conversation privée ?',
+      'Supprimer la conversation',
+      'Voulez-vous supprimer ce message ?',
       [
         {
           text: 'Annuler',
           style: 'cancel',
+          onPress: () => {
+            swipeableRef?.current?.close();
+          }
         },
         {
           text: 'Supprimer',
@@ -224,8 +397,9 @@ export default function MessagesScreen() {
               const token = await getToken();
               if (!token) return;
 
+              const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
               // Appeler l'API pour supprimer la conversation privée
-              const response = await fetch(`http://192.168.1.62:5000/api/discussions/private/${chatId}/delete`, {
+              const response = await fetch(`${API_URL}/discussions/private/${chatId}/delete`, {
                 method: 'DELETE',
                 headers: {
                   'Authorization': `Bearer ${token}`
@@ -237,9 +411,53 @@ export default function MessagesScreen() {
                 await loadChatRooms();
               } else {
                 Alert.alert('Erreur', 'Impossible de supprimer la conversation');
+                swipeableRef?.current?.close();
               }
             } catch (error) {
               Alert.alert('Erreur', 'Impossible de supprimer la conversation');
+              swipeableRef?.current?.close();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAllPrivateChats = () => {
+    Alert.alert(
+      'Supprimer tous les messages privés',
+      'Voulez-vous supprimer tous les messages privés ?',
+      [
+        {
+          text: 'Non',
+          style: 'cancel',
+        },
+        {
+          text: 'Oui',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await getToken();
+              if (!token) return;
+
+              const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+              
+              // Supprimer chaque conversation privée une par une
+              // Note: Idéalement, il faudrait un endpoint backend pour la suppression en masse
+              const deletePromises = privateChats.map(chat => 
+                fetch(`${API_URL}/discussions/private/${chat.id}/delete`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                })
+              );
+
+              await Promise.all(deletePromises);
+              await loadChatRooms();
+              
+            } catch (error) {
+              Alert.alert('Erreur', 'Impossible de supprimer les conversations');
             }
           },
         },
@@ -256,12 +474,25 @@ export default function MessagesScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Messages</Text>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={[styles.headerTitle, { color: colors.text, marginBottom: 0 }]}>Messages</Text>
+          <TouchableOpacity 
+            onPress={handleDeleteAllPrivateChats}
+            style={{
+              backgroundColor: '#EF4444',
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 25,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Tout supprimer</Text>
+          </TouchableOpacity>
+        </View>
         
         {/* Search Bar */}
         <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-          <Search size={18} color={colors.textSecondary} strokeWidth={2} />
+          <Search size={18} color="#FFFFFF" strokeWidth={2} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder="  Rechercher dans les messages..."
@@ -270,16 +501,14 @@ export default function MessagesScreen() {
             placeholderTextColor={colors.textSecondary}
           />
         </View>
-      </Animated.View>
-
-
+      </View>
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
           <TouchableOpacity
             style={[
               styles.tabButton,
-              { backgroundColor: selectedTab === 'all' ? '#8B5CF6' : 'rgba(255, 255, 255, 0.1)' }
+              { backgroundColor: selectedTab === 'all' ? '#1E40AF' : 'rgba(255, 255, 255, 0.1)' }
             ]}
             onPress={() => setSelectedTab('all')}
           >
@@ -293,7 +522,7 @@ export default function MessagesScreen() {
           <TouchableOpacity
             style={[
               styles.tabButton,
-              { backgroundColor: selectedTab === 'groups' ? '#10B981' : 'rgba(255, 255, 255, 0.1)' }
+              { backgroundColor: selectedTab === 'groups' ? '#F59E0B' : 'rgba(255, 255, 255, 0.1)' }
             ]}
             onPress={() => setSelectedTab('groups')}
           >
@@ -308,11 +537,11 @@ export default function MessagesScreen() {
           <TouchableOpacity
             style={[
               styles.tabButton,
-              { backgroundColor: selectedTab === 'private' ? '#A855F7' : 'rgba(255, 255, 255, 0.1)' }
+              { backgroundColor: selectedTab === 'private' ? '#1E40AF' : 'rgba(255, 255, 255, 0.1)' }
             ]}
             onPress={() => setSelectedTab('private')}
           >
-            <Lock size={16} color={selectedTab === 'private' ? '#FFFFFF' : colors.text} strokeWidth={2} />
+            <Lock size={16} color={selectedTab === 'private' ? '#FFFFFF' : '#1E40AF'} strokeWidth={2} />
             <Text style={[
               styles.tabButtonText,
               { color: selectedTab === 'private' ? '#FFFFFF' : colors.text, marginLeft: 6 }
@@ -326,17 +555,21 @@ export default function MessagesScreen() {
       {/* Messages Content */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
+          <ActivityIndicator size="large" color="#1E40AF" />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             Chargement des messages...
           </Text>
         </View>
       ) : filteredConversations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {selectedTab === 'all' ? 'Vous n\'avez encore aucun message' :
-             selectedTab === 'groups' ? 'Aucun message de groupe' :
-             'Aucun message privé'}
+          <MessageCircle size={64} color={colors.textSecondary} strokeWidth={1.5} style={{ opacity: 0.3 }} />
+          <Text style={[styles.emptyTitle, { color: colors.text, marginTop: 16, fontSize: 18, fontWeight: '600' }]}>
+            Aucune conversation
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary, marginTop: 8, textAlign: 'center', paddingHorizontal: 40 }]}>
+            {selectedTab === 'all' ? 'Rejoignez une activité pour commencer à discuter' :
+             selectedTab === 'groups' ? 'Aucune discussion de groupe active' :
+             'Aucune conversation privée'}
           </Text>
         </View>
       ) : (
@@ -353,110 +586,28 @@ export default function MessagesScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#8B5CF6"
+              tintColor="#1E40AF"
             />
           }
         >
           {filteredConversations.map((conversation, index) => {
             const isPrivate = conversation.id.startsWith('private-');
             const chatType = isPrivate ? 'private' : 'group';
-            
-            const renderRightActions = () => {
-              if (chatType === 'group') {
-                return null;
-              }
-              return (
-                <View style={styles.deleteButton}>
-                  <Trash2 size={20} color="#FFFFFF" strokeWidth={2} />
-                  <Text style={styles.deleteText}>Supprimer</Text>
-                </View>
-              );
-            };
+            const uniqueKey = `${conversation.id}-${index}-${chatType}`;
 
             return (
-              <Animated.View
-                key={conversation.id}
-                entering={FadeInDown.delay(200 + index * 50)}
-              >
-                <Swipeable renderRightActions={renderRightActions}>
-                  <TouchableOpacity
-                    style={[styles.messageCard, { backgroundColor: colors.surface }]}
-                    onPress={() => navigateToChat(conversation.id, chatType, isPrivate ? conversation.organizerName : conversation.activityName)}
-                  >
-                    <View style={styles.profileRow}>
-                      <View style={styles.profileAvatarContainer}>
-                        <Image 
-                          source={{ uri: isPrivate ? conversation.organizerAvatar : conversation.activityImage }} 
-                          style={[styles.profileAvatar, { borderWidth: 3, borderColor: '#A855F7' }]}
-                        />
-                        <View style={[styles.typeIcon, { backgroundColor: isPrivate ? '#8B5CF6' : '#10B981' }]}>
-                          {isPrivate ? (
-                            <Lock size={9} color="#FFFFFF" strokeWidth={2} />
-                          ) : (
-                            <Users size={9} color="#FFFFFF" strokeWidth={2} />
-                          )}
-                        </View>
-                        {!isPrivate && conversation.participants?.some((p: any) => p.isOnline) && (
-                          <View style={styles.onlineIndicator} />
-                        )}
-                      </View>
-                      
-                      <View style={styles.profileInfo}>
-                        <View style={styles.profileHeader}>
-                          <Text style={[styles.profileName, { color: '#A855F7' }]} numberOfLines={1} ellipsizeMode="tail">
-                            {conversation.activityName || conversation.organizerName || 'Chat'}
-                          </Text>
-                          <Text style={[styles.messageTime, { color: colors.textSecondary }]}>
-                            {conversation.lastMessage ? formatTime(conversation.lastMessage.createdAt || conversation.lastMessage.timestamp) : 'Nouveau'}
-                          </Text>
-                        </View>
-                        <View style={styles.subtitleRow}>
-                          <Text style={[styles.profileSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {conversation.lastMessage ? (
-                              conversation.lastMessage.messageType === 'IMAGE' ? '📷 Image' :
-                              conversation.lastMessage.messageType === 'VIDEO' ? '🎥 Vidéo' :
-                              conversation.lastMessage.content
-                            ) : (
-                              isPrivate ? 'Chat avec l\'organisateur' : `Groupe • ${conversation.participants?.length || 0} participants`
-                            )}
-                          </Text>
-                          {isPrivate ? (
-                            <LinearGradient
-                              colors={['#6366F1', '#8B5CF6']}
-                              style={styles.privateBadge}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                            >
-                              <Text style={styles.privateBadgeText}>PRIVÉ</Text>
-                            </LinearGradient>
-                          ) : (
-                            <LinearGradient
-                              colors={['#10B981', '#059669']}
-                              style={styles.groupBadge}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                            >
-                              <Text style={styles.groupBadgeText}>GROUPE</Text>
-                            </LinearGradient>
-                          )}
-                        </View>
-                      </View>
-                      
-                      <View style={styles.profileAction}>
-                        {conversation.unreadCount && conversation.unreadCount > 0 ? (
-                          <View style={styles.unreadBadge}>
-                            <Text style={styles.unreadText}>
-                              {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={[styles.arrow, { color: colors.textSecondary }]}>›</Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </Swipeable>
-              </Animated.View>
+              <MessageItem
+                key={uniqueKey}
+                conversation={conversation}
+                index={index}
+                chatType={chatType}
+                isPrivate={isPrivate}
+                colors={colors}
+                unreadMessages={unreadMessages}
+                navigateToChat={navigateToChat}
+                handleDeleteConversation={handleDeleteConversation}
+                formatTime={formatTime}
+              />
             );
           })}
         </ScrollView>
@@ -617,6 +768,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   profileAction: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -625,7 +777,7 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   unreadBadge: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#3B82F6', // Bleu demandé par l'utilisateur
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -640,9 +792,14 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 150,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
   },
   emptyText: {
     fontSize: 16,
@@ -661,17 +818,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    borderRadius: 16,
-    marginVertical: 6,
-    marginRight: 12,
-  },
-  deleteText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignSelf: 'center',
+    marginRight: 20,
   },
 });

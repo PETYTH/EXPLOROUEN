@@ -10,13 +10,16 @@ interface ThemeContextType {
     textSecondary: string;
     primary: string;
     border: string;
+    accent: string;
+    buttonPrimary: string;
+    link: string;
   };
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -27,15 +30,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     surface: '#2D2D2D',
     text: '#FFFFFF',
     textSecondary: '#9CA3AF',
-    primary: '#8B5CF6',
+    primary: '#1E40AF', // Bleu Seine
     border: '#374151',
+    accent: '#F59E0B', // Doré
+    buttonPrimary: '#1E40AF', // Bleu Seine partout
+    link: '#1E40AF', // Bleu Seine partout
   } : {
     background: '#FAFAFA',
-    surface: '#F3F4F6',
+    surface: '#FFFFFF',
     text: '#1F2937',
     textSecondary: '#6B7280',
-    primary: '#8B5CF6',
-    border: '#D1D5DB',
+    primary: '#1E40AF', // Bleu Seine
+    border: '#E5E7EB',
+    accent: '#F59E0B', // Doré
+    buttonPrimary: '#1E40AF', // Bleu Seine partout
+    link: '#1E40AF', // Bleu Seine partout
   };
 
   return (

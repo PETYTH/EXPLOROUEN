@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import ApiService from '@/services/api';
+import chatService from '@/services/chatService';
 
 interface Message {
   id: string;

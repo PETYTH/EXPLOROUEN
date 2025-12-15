@@ -64,9 +64,12 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
         const stats = await ApiService.getUserStats(token);
         setUserStats(stats);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch user stats');
-      // Keep existing stats on error
+    } catch (err: any) {
+      // Ne pas afficher d'erreur si c'est un problème d'authentification
+      if (err?.status !== 401 && !err?.message?.includes('authenticate')) {
+        setError('Impossible de charger les statistiques');
+      }
+      // Garder les stats existantes en cas d'erreur
     } finally {
       setIsLoading(false);
     }
@@ -80,8 +83,11 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       const token = isSignedIn ? (await getToken()) || undefined : undefined;
       const allActivities = await ApiService.getActivities({}, token);
       setActivities(allActivities);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch activities');
+    } catch (err: any) {
+      // Ne pas afficher d'erreur si c'est un problème d'authentification
+      if (err?.status !== 401 && !err?.message?.includes('authenticate')) {
+        setError('Impossible de charger les activités');
+      }
     } finally {
       setIsLoadingActivities(false);
     }

@@ -9,20 +9,12 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  Platform,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { ArrowLeft, MapPin, Clock, Users, Star, MessageCircle, Calendar, Share, Trash2, Edit } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSequence, 
-  withTiming, 
-  withRepeat,
-  withDelay,
-  interpolate,
-  Extrapolate
-} from 'react-native-reanimated';
 import { useChat } from '@/contexts/ChatContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -35,7 +27,7 @@ export default function ActivityDetailScreen() {
   const { } = useChat();
   const { getToken } = useAuth();
   const { user } = useUser();
-  const { isAdmin } = useRole();
+  const { isAdmin, isStaff } = useRole();
   const [isJoined, setIsJoined] = useState(false);
   const [activity, setActivity] = useState<any>(null);
   const [backendActivity, setBackendActivity] = useState<BackendActivityDetail | null>(null);
@@ -44,79 +36,72 @@ export default function ActivityDetailScreen() {
   const [registering, setRegistering] = useState(false);
   const { colors } = useTheme();
   
-  const buttonScale = useSharedValue(1);
-  const buttonRotation = useSharedValue(0);
-  const glowAnimation = useSharedValue(0);
-  const pulseAnimation = useSharedValue(1);
+  const buttonScale = 1;
+  const buttonRotation = 0;
+  const glowAnimation = 0;
+  const pulseAnimation = 1;
 
   // Récupérer les détails de l'activité depuis l'API
-  useEffect(() => {
-    const fetchActivity = async () => {
-      if (!id || typeof id !== 'string') return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        console.log('🌐 Calling API:', `${process.env.EXPO_PUBLIC_URL_BACKEND}/activities/${id}`);
-        const backendData = await ApiService.getActivityById(id);
-        console.log('📦 API Response:', JSON.stringify(backendData, null, 2));
-        setBackendActivity(backendData);
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+
+      const fetchActivity = async () => {
+        if (!id || typeof id !== 'string') return;
         
-        // Convertir les données backend vers le format frontend
-        const convertedActivity = ActivityAdapter.backendToFrontend(backendData);
-        console.log('🔄 Converted Activity:', JSON.stringify(convertedActivity, null, 2));
-        setActivity(convertedActivity);
+        // Ne pas afficher le chargement si on a déjà les données (pour éviter le flash lors du refresh)
+        if (!activity) setLoading(true);
+        setError(null);
         
-        // Vérifier si l'utilisateur est déjà inscrit
-        if (user) {
-          const token = await getToken();
-          if (token) {
-            try {
-              const userActivities = await ApiService.getUserActivities(token);
-              const isRegistered = userActivities.some((userActivity: any) => userActivity.id === id);
-              setIsJoined(isRegistered);
-            } catch (error) {
-              console.log('Could not fetch user activities:', error);
+        try {
+          console.log('🌐 Calling API:', `${process.env.EXPO_PUBLIC_URL_BACKEND}/activities/${id}`);
+          const backendData = await ApiService.getActivityById(id);
+          
+          if (isActive) {
+            console.log('📦 API Response:', JSON.stringify(backendData, null, 2));
+            setBackendActivity(backendData);
+            
+            // Convertir les données backend vers le format frontend
+            const convertedActivity = ActivityAdapter.backendToFrontend(backendData);
+            console.log('🔄 Converted Activity:', JSON.stringify(convertedActivity, null, 2));
+            setActivity(convertedActivity);
+            
+            // Vérifier si l'utilisateur est déjà inscrit
+            if (user) {
+              const token = await getToken();
+              if (token) {
+                try {
+                  const userActivities = await ApiService.getUserActivities(token);
+                  if (isActive) {
+                    const isRegistered = userActivities.some((userActivity: any) => userActivity.id === id);
+                    setIsJoined(isRegistered);
+                  }
+                } catch (error) {
+                  console.log('Could not fetch user activities:', error);
+                }
+              }
             }
           }
+          
+        } catch (error) {
+          if (isActive) {
+            console.error('Error fetching activity:', error);
+            setError(error instanceof Error ? error.message : 'Erreur lors du chargement de l\'activité');
+          }
+        } finally {
+          if (isActive) {
+            setLoading(false);
+          }
         }
-        
-      } catch (error) {
-        console.error('Error fetching activity:', error);
-        setError(error instanceof Error ? error.message : 'Erreur lors du chargement de l\'activité');
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchActivity();
-  }, [id, user]);
+      fetchActivity();
 
-  // Animation continue pour le bouton rejoindre
-  useEffect(() => {
-    if (isJoined) {
-      // Animation de lueur
-      glowAnimation.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1000 }),
-          withTiming(0, { duration: 1000 })
-        ),
-        -1,
-        false
-      );
-      
-      // Animation de pulsation
-      pulseAnimation.value = withRepeat(
-        withSequence(
-          withTiming(1.02, { duration: 1500 }),
-          withTiming(1, { duration: 1500 })
-        ),
-        -1,
-        false
-      );
-    }
-  }, [isJoined]);
+      return () => {
+        isActive = false;
+      };
+    }, [id, user])
+  );
 
   const createPrivateChat = async () => {
     if (!user || !backendActivity) {
@@ -161,6 +146,12 @@ export default function ActivityDetailScreen() {
       return;
     }
 
+    // Vérifier si l'activité est passée
+    if (activity && new Date(activity.date) < new Date()) {
+      Alert.alert('Activité terminée', 'Cette activité est terminée, vous ne pouvez plus vous inscrire');
+      return;
+    }
+
     if (!id || typeof id !== 'string') return;
 
     setRegistering(true);
@@ -175,20 +166,6 @@ export default function ActivityDetailScreen() {
       // Appel API pour s'inscrire à l'activité
       await ApiService.registerToActivity(id, token);
 
-      // Animation de vibration
-      buttonScale.value = withSequence(
-        withTiming(0.95, { duration: 100 }),
-        withTiming(1.05, { duration: 100 }),
-        withTiming(1, { duration: 100 })
-      );
-      
-      buttonRotation.value = withSequence(
-        withTiming(-2, { duration: 50 }),
-        withTiming(2, { duration: 100 }),
-        withTiming(-1, { duration: 50 }),
-        withTiming(0, { duration: 50 })
-      );
-      
       setIsJoined(true);
 
       Alert.alert(
@@ -234,7 +211,8 @@ export default function ActivityDetailScreen() {
               }
 
               // Appel API pour supprimer l'activité
-              const response = await fetch(`http://192.168.1.62:5000/api/activities/${id}`, {
+              const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+              const response = await fetch(`${API_URL}/activities/${id}`, {
                 method: 'DELETE',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -320,29 +298,20 @@ export default function ActivityDetailScreen() {
     });
   };
 
-  const animatedButtonStyle = useAnimatedStyle(() => {
-    const glowOpacity = interpolate(
-      glowAnimation.value,
-      [0, 1],
-      [0.3, 0.8],
-      Extrapolate.CLAMP
-    );
-    
-    return {
-      transform: [
-        { scale: buttonScale.value * pulseAnimation.value },
-        { rotate: `${buttonRotation.value}deg` }
-      ],
-      shadowOpacity: glowOpacity,
-    };
-  });
+  const animatedButtonStyle = {
+    transform: [
+      { scale: buttonScale * pulseAnimation },
+      { rotate: `${buttonRotation}deg` }
+    ],
+    shadowOpacity: glowAnimation,
+  };
 
   // Early return si pas d'activité pour éviter les erreurs de hooks
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
+          <ActivityIndicator size="large" color="#1E40AF" />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             Chargement de l'activité...
           </Text>
@@ -367,7 +336,8 @@ export default function ActivityDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       {/* Header */}
       <View style={styles.imageContainer}>
         <Image source={{ uri: activity.image }} style={styles.activityImage} />
@@ -382,7 +352,7 @@ export default function ActivityDetailScreen() {
             </TouchableOpacity>
             
             <View style={styles.rightActions}>
-              {isAdmin && (
+              {(isAdmin || (isStaff && user?.id === backendActivity?.createdBy)) && (
                 <TouchableOpacity 
                   style={[styles.headerButton, styles.editButton]} 
                   onPress={handleEditActivity}
@@ -390,7 +360,7 @@ export default function ActivityDetailScreen() {
                   <Edit size={20} color="#FFFFFF" strokeWidth={2} />
                 </TouchableOpacity>
               )}
-              {isAdmin && (
+              {(isAdmin || (isStaff && user?.id === backendActivity?.createdBy)) && (
                 <TouchableOpacity 
                   style={[styles.headerButton, styles.deleteButton]} 
                   onPress={handleDeleteActivity}
@@ -409,15 +379,24 @@ export default function ActivityDetailScreen() {
           colors={['transparent', 'rgba(0,0,0,0.8)']}
           style={styles.bottomOverlay}
         >
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>
-              {activity.status === 'active' ? 'En cours' : activity.status === 'upcoming' ? 'Bientôt' : 'Terminé'}
-            </Text>
-          </View>
+          {(() => {
+            const activityDate = new Date(activity.date);
+            const now = new Date();
+            const isPast = activityDate < now;
+            
+            return (
+              <View style={[styles.statusBadge, { backgroundColor: isPast ? '#EF4444' : '#22C55E' }]}>
+                <Text style={styles.statusText}>
+                  {isPast ? 'Terminé' : (activity.status === 'active' ? 'En cours' : 
+                   activity.status === 'upcoming' ? 'Bientôt' : 'Terminé')}
+                </Text>
+              </View>
+            );
+          })()}
         </LinearGradient>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {/* Title and Description */}
         <View style={styles.titleSection}>
           <Text style={[styles.activityTitle, { color: colors.text }]}>{activity.title}</Text>
@@ -427,20 +406,20 @@ export default function ActivityDetailScreen() {
         {/* Quick Info */}
         <View style={[styles.quickInfo, { backgroundColor: colors.surface }]}>
           <View style={styles.infoItem}>
-            <Calendar size={16} color="#667EEA" strokeWidth={2} />
+            <Calendar size={16} color="#F59E0B" strokeWidth={2} />
             <Text style={[styles.infoText, { color: colors.text }]}>{activity.date}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Clock size={16} color="#667EEA" strokeWidth={2} />
-            <Text style={[styles.infoText, { color: colors.text }]}>{activity.time}</Text>
+            <Clock size={16} color="#F59E0B" strokeWidth={2} />
+            <Text style={[styles.activityDuration, { color: '#F59E0B' }]}>{activity.duration}</Text>
           </View>
           <View style={styles.infoItem}>
-            <MapPin size={16} color="#667EEA" strokeWidth={2} />
+            <MapPin size={16} color="#1E40AF" strokeWidth={2} />
             <Text style={[styles.infoText, { color: colors.text }]}>{activity.location}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Users size={16} color="#667EEA" strokeWidth={2} />
-            <Text style={[styles.infoText, { color: colors.text }]}>{activity.currentParticipants}/{activity.maxParticipants}</Text>
+            <Users size={16} color="#DC2626" strokeWidth={2} />
+            <Text style={[styles.activityParticipants, { color: '#DC2626' }]}>{activity.currentParticipants}/{activity.maxParticipants}</Text>
           </View>
         </View>
 
@@ -452,16 +431,38 @@ export default function ActivityDetailScreen() {
             <View style={styles.organizerInfo}>
               <Text style={[styles.organizerName, { color: colors.text }]}>{activity.organizer.name}</Text>
               <View style={styles.ratingContainer}>
-                <Star size={14} color="#FBBF24" fill="#FBBF24" />
+                <Star size={14} color="#1E40AF" fill="#1E40AF" />
                 <Text style={[styles.ratingText, { color: colors.textSecondary }]}>{activity.organizer.rating}</Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={styles.contactButton}
-              onPress={() => createPrivateChat()}
-            >
-              <Text style={styles.contactButtonText}>Contacter</Text>
-            </TouchableOpacity>
+            {(() => {
+              const isOrganizer = user?.id === backendActivity?.createdBy;
+              console.log('🔍 BOUTON CONTACTER - Organizer Check:', {
+                userId: user?.id,
+                userIdType: typeof user?.id,
+                createdBy: backendActivity?.createdBy,
+                createdByType: typeof backendActivity?.createdBy,
+                isOrganizer,
+                comparison: `'${user?.id}' === '${backendActivity?.createdBy}'`,
+                isAdmin,
+                isStaff
+              });
+              
+              if (isOrganizer || isAdmin) {
+                console.log('❌ BOUTON CONTACTER CACHÉ - Vous êtes l\'organisateur ou admin');
+                return null;
+              }
+              
+              console.log('✅ BOUTON CONTACTER VISIBLE - Vous n\'\u00eates pas l\'organisateur');
+              return (
+                <TouchableOpacity 
+                  style={styles.contactButton}
+                  onPress={() => createPrivateChat()}
+                >
+                  <Text style={styles.contactButtonText}>Contacter</Text>
+                </TouchableOpacity>
+              );
+            })()}
           </View>
         </View>
 
@@ -507,43 +508,65 @@ export default function ActivityDetailScreen() {
       </ScrollView>
 
       {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        <View style={[styles.floatingMenuContainer, { backgroundColor: 'rgba(40, 40, 40, 0.95)' }]}>
-          {isJoined && (
-            <>
-              <TouchableOpacity style={styles.floatingMenuButton} onPress={openChat}>
-                <MessageCircle size={20} color="#CCCCCC" strokeWidth={2} />
-              </TouchableOpacity>
+      {(() => {
+        const isOrganizer = user?.id === backendActivity?.createdBy;
+        console.log('🔍 MENU FLOTTANT - Bottom Actions Check:', {
+          userId: user?.id,
+          userIdType: typeof user?.id,
+          createdBy: backendActivity?.createdBy,
+          createdByType: typeof backendActivity?.createdBy,
+          isOrganizer,
+          comparison: `'${user?.id}' === '${backendActivity?.createdBy}'`,
+          isAdmin,
+          isStaff
+        });
+        
+        if (isOrganizer || isAdmin) {
+          console.log('❌ MENU FLOTTANT CACHÉ - Vous êtes l\'organisateur ou admin');
+          return false;
+        }
+        
+        console.log('✅ MENU FLOTTANT VISIBLE - Vous n\'\u00eates pas l\'organisateur');
+        return true;
+      })() && (
+        <View style={styles.bottomActions}>
+          <View style={[styles.floatingMenuContainer, { backgroundColor: 'rgba(40, 40, 40, 0.95)' }]}>
+            {isJoined && (
+              <>
+                <TouchableOpacity style={styles.floatingMenuButton} onPress={openChat}>
+                  <MessageCircle size={20} color="#1E40AF" strokeWidth={2} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.floatingMenuButton, styles.unregisterButton]}
+                  onPress={handleUnregisterActivity}
+                  disabled={registering}
+                >
+                  {registering ? (
+                    <ActivityIndicator size={16} color="#FF6B6B" />
+                  ) : (
+                    <Text style={styles.unregisterIcon}>−</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+            
+            {!isJoined && (
               <TouchableOpacity 
-                style={[styles.floatingMenuButton, styles.unregisterButton]}
-                onPress={handleUnregisterActivity}
+                style={[styles.floatingMenuButton, styles.activeFloatingButton]}
+                onPress={handleJoinActivity}
                 disabled={registering}
               >
                 {registering ? (
-                  <ActivityIndicator size={16} color="#FF6B6B" />
+                  <ActivityIndicator size={16} color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.unregisterIcon}>−</Text>
+                  <Text style={styles.joinIcon}>+</Text>
                 )}
               </TouchableOpacity>
-            </>
-          )}
-          
-          {!isJoined && (
-            <TouchableOpacity 
-              style={[styles.floatingMenuButton, styles.activeFloatingButton]}
-              onPress={handleJoinActivity}
-              disabled={registering}
-            >
-              {registering ? (
-                <ActivityIndicator size={16} color="#FFFFFF" />
-              ) : (
-                <Text style={styles.joinIcon}>+</Text>
-              )}
-            </TouchableOpacity>
-          )}
+            )}
+          </View>
         </View>
-      </View>
-    </SafeAreaView>
+      )}
+    </View>
   );
 }
 
@@ -552,7 +575,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   imageContainer: {
-    height: 300,
+    height: 400,
     position: 'relative',
   },
   activityImage: {
@@ -565,8 +588,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
-    paddingTop: 50,
+    height: 140,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 40 : 60,
     paddingHorizontal: 20,
   },
   headerActions: {
@@ -586,10 +609,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editButton: {
-    backgroundColor: 'rgba(139, 92, 246, 0.9)',
+    backgroundColor: '#1E40AF',
     borderWidth: 2,
-    borderColor: '#8B5CF6',
-    shadowColor: '#8B5CF6',
+    borderColor: '#1E40AF',
+    shadowColor: '#1E40AF',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -637,7 +660,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 100,
   },
   titleSection: {
     marginBottom: 24,
@@ -653,13 +675,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   quickInfo: {
-    backgroundColor: 'rgba(102, 126, 234, 0.05)',
+    backgroundColor: 'rgba(30, 64, 175, 0.05)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
     gap: 16,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.1)',
+    borderColor: 'rgba(30, 64, 175, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -675,6 +697,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
   },
+  activityDuration: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  activityParticipants: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#DC2626',
+    marginLeft: 4,
+  },
   organizerSection: {
     marginBottom: 24,
   },
@@ -689,7 +723,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.1)',
+    borderColor: 'rgba(30, 64, 175, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -720,14 +754,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   contactButton: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#DBEAFE',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
   },
   contactButtonText: {
     fontSize: 14,
-    color: '#667EEA',
+    color: '#1E40AF',
     fontWeight: '600',
   },
   detailsSection: {
@@ -735,7 +769,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.1)',
+    borderColor: 'rgba(30, 64, 175, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -782,7 +816,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.1)',
+    borderColor: 'rgba(30, 64, 175, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -799,7 +833,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#667EEA',
+    backgroundColor: '#1E40AF',
   },
   requirementText: {
     fontSize: 15,
@@ -838,7 +872,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   activeFloatingButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   joinIcon: {
     fontSize: 20,
@@ -864,13 +898,13 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     width: '100%',
-    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    backgroundColor: 'rgba(30, 64, 175, 0.1)',
     paddingVertical: 14,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
+    borderColor: 'rgba(30, 64, 175, 0.3)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
@@ -879,7 +913,7 @@ const styles = StyleSheet.create({
   },
   chatButtonText: {
     fontSize: 15,
-    color: '#667EEA',
+    color: '#1E40AF',
     fontWeight: '700',
   },
   joinButton: {
@@ -933,15 +967,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backButton: {
-    backgroundColor: '#8B5CF6',
-    shadowColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
   errorBackButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

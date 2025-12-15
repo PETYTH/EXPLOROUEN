@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   TextInput,
@@ -13,11 +12,12 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, MapPin, Camera, Star, Clock } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useMonuments } from '@/contexts/MonumentsContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRole } from '../hooks/useRole';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,10 +25,11 @@ import ApiService, { CreateMonumentData } from '@/services/api';
 import { handleImageUpload } from '@/services/imageUpload';
 
 export default function CreateMonumentScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { getToken } = useAuth();
   const { user } = useUser();
   const { isAdmin } = useRole();
+  const { refreshMonuments } = useMonuments();
   const params = useLocalSearchParams();
   
   // Détecter le mode édition
@@ -46,6 +47,7 @@ export default function CreateMonumentScreen() {
   const [historicalPeriod, setHistoricalPeriod] = useState(isEditMode && monumentData ? monumentData.history || '' : '');
   const [visitDuration, setVisitDuration] = useState(isEditMode && monumentData ? monumentData.visitDuration?.toString() || '' : '');
   const [price, setPrice] = useState(isEditMode && monumentData ? monumentData.price?.toString() || '0' : '0');
+  const [isFree, setIsFree] = useState(isEditMode && monumentData ? (monumentData.price === '0' || monumentData.price === 'Gratuit') : false);
   const [pointOfInterest, setPointOfInterest] = useState(isEditMode && monumentData ? monumentData.highlights || '' : '');
   const [selectedImage, setSelectedImage] = useState<string | null>(
     isEditMode && monumentData 
@@ -56,8 +58,10 @@ export default function CreateMonumentScreen() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [tempCategory, setTempCategory] = useState(category);
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<number | null>(null);
 
   const [errors, setErrors] = useState({
     name: '',
@@ -70,10 +74,12 @@ export default function CreateMonumentScreen() {
   });
 
   const categories = [
-    { id: 'MONUMENT', label: 'Monument', color: '#10B981' },
-    { id: 'MUSEUM', label: 'Musée', color: '#F59E0B' },
-    { id: 'PARK', label: 'Parc', color: '#EC4899' },
-    { id: 'CHURCH', label: 'Église', color: '#8B5CF6' },
+    { id: 'HISTORIC', label: 'Historique', color: '#F59E0B' },
+    { id: 'RELIGIOUS', label: 'Religieux', color: '#6366F1' },
+    { id: 'OLD_HOUSE', label: 'Maison ancienne', color: '#8B5CF6' },
+    { id: 'CIVIL', label: 'Civil', color: '#10B981' },
+    { id: 'MUSEUM', label: 'Musée', color: '#EC4899' },
+    { id: 'MEMORIAL', label: 'Commémoratif', color: '#6B7280' },
   ];
 
   // Vérifier si l'utilisateur est admin
@@ -112,6 +118,7 @@ export default function CreateMonumentScreen() {
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.8,
+        exif: false,
       });
 
       console.log('📸 Résultat sélection image:', result);
@@ -130,25 +137,49 @@ export default function CreateMonumentScreen() {
     }
   };
 
-  // Fonction pour rechercher des adresses avec Nominatim
-  const searchAddresses = async (query: string) => {
+  // Fonction pour rechercher des adresses avec Nominatim (avec debounce)
+  const searchAddresses = (query: string) => {
+    // Annuler la recherche précédente si elle existe
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
     if (query.length < 3) {
       setAddressSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=fr&addressdetails=1`
-      );
-      const data = await response.json();
-      
-      setAddressSuggestions(data);
-      setShowSuggestions(data.length > 0);
-    } catch (error) {
-      console.error('Erreur recherche adresse:', error);
-    }
+    // Créer un nouveau timeout pour la recherche
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=fr&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'ExploRouen/1.0',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          console.error('Erreur API Nominatim:', response.status);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        setAddressSuggestions(data);
+        setShowSuggestions(data.length > 0);
+      } catch (error) {
+        console.error('Erreur recherche adresse:', error);
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 800); // Attendre 800ms après la dernière frappe
+
+    setSearchTimeout(timeout);
   };
 
   // Fonction pour sélectionner une adresse
@@ -181,7 +212,7 @@ export default function CreateMonumentScreen() {
         if (!value.trim()) {
           error = 'L\'adresse est requise';
         }
-        break;
+        break
     }
     
     setErrors(prev => ({ ...prev, [field]: error }));
@@ -270,11 +301,12 @@ export default function CreateMonumentScreen() {
         isActive: true,
       };
 
+      const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
       let response;
       if (isEditMode && monumentId) {
         // Mode modification - utiliser PUT
         console.log('🔄 Appel API PUT pour modification monument:', monumentId);
-        response = await fetch(`http://192.168.1.62:5000/api/monuments/${monumentId}`, {
+        response = await fetch(`${API_URL}/monuments/${monumentId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -290,7 +322,7 @@ export default function CreateMonumentScreen() {
             history: historicalPeriod.trim() || undefined,
             visitDuration: visitDuration.trim() || undefined,
             highlights: pointOfInterest.trim() || undefined,
-            price: price.trim() || '0',
+            price: isFree ? 'Gratuit' : (price.trim() || '0'),
             image: uploadedImageUrl || undefined,
           }),
         });
@@ -308,7 +340,7 @@ export default function CreateMonumentScreen() {
       } else {
         // Mode création - utiliser POST
         console.log('🆕 Appel API POST pour création monument');
-        response = await fetch(`http://192.168.1.62:5000/api/monuments`, {
+        response = await fetch(`${API_URL}/monuments`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -324,7 +356,7 @@ export default function CreateMonumentScreen() {
             history: historicalPeriod.trim() || undefined,
             visitDuration: visitDuration.trim() || undefined,
             highlights: pointOfInterest.trim() || undefined,
-            price: price.trim() || '0',
+            price: isFree ? 'Gratuit' : (price.trim() || '0'),
             image: uploadedImageUrl || undefined,
           }),
         });
@@ -341,6 +373,9 @@ export default function CreateMonumentScreen() {
         console.log('✅ Résultat création:', result);
       }
 
+      // Rafraîchir les monuments dans le contexte
+      await refreshMonuments();
+      
       Alert.alert(
         'Succès',
         isEditMode ? 'Monument modifié avec succès !' : 'Monument créé avec succès !',
@@ -357,23 +392,33 @@ export default function CreateMonumentScreen() {
   const selectedCategoryData = categories.find(cat => cat.id === category);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {isEditMode ? 'Modifier le monument' : 'Créer un monument'}
-        </Text>
-      </Animated.View>
+    <View style={styles.container}>
+      {/* Image de fond plein écran */}
+      <Image 
+        source={require('../assets/images/cathedrale-rouen.jpg')}
+        style={styles.backgroundImage}
+      />
+      
+      {/* Dark Overlay */}
+      <View style={styles.darkOverlay} />
+      
+      <View style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.buttonPrimary }]}>
+            <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>
+            {isEditMode ? 'Modifier le monument' : 'Créer un monument'}
+          </Text>
+        </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Nom du monument */}
-        <Animated.View entering={FadeInDown.delay(200)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Nom du monument <Text style={styles.required}>*</Text></Text>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Nom du monument */}
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Nom du monument <Text style={[styles.required, { color: colors.link }]}>*</Text></Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.name ? '#8B5CF6' : colors.border }]}
+            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.name ? colors.link : colors.border }]}
             placeholder="Ex: Cathédrale Notre-Dame de Rouen"
             placeholderTextColor={colors.textSecondary}
             value={name}
@@ -385,13 +430,13 @@ export default function CreateMonumentScreen() {
             maxLength={100}
           />
           {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
-        </Animated.View>
+        </View>
 
         {/* Description */}
-        <Animated.View entering={FadeInDown.delay(300)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Description <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: errors.description ? '#8B5CF6' : colors.border }]}
+            style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: errors.description ? colors.link : colors.border }]}
             placeholder="Décrivez le monument, son histoire, son architecture... (minimum 20 caractères)"
             placeholderTextColor={colors.textSecondary}
             value={description}
@@ -405,13 +450,13 @@ export default function CreateMonumentScreen() {
             maxLength={500}
           />
           {errors.description ? <Text style={styles.errorText}>{errors.description}</Text> : null}
-        </Animated.View>
+        </View>
 
         {/* Adresse */}
-        <Animated.View entering={FadeInDown.delay(400)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Adresse <Text style={styles.required}>*</Text></Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.address ? '#8B5CF6' : colors.border }]}>
-            <MapPin size={16} color="#8B5CF6" strokeWidth={2} />
+          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.address ? colors.link : colors.border }]}>
+            <MapPin size={16} color={colors.link} strokeWidth={2} />
             <TextInput
               style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
               placeholder="Ex: Place de la Cathédrale, 76000 Rouen"
@@ -459,16 +504,16 @@ export default function CreateMonumentScreen() {
               </Text>
             </View>
           )}
-        </Animated.View>
+        </View>
 
         {/* Coordonnées GPS */}
-        <Animated.View entering={FadeInDown.delay(450)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Coordonnées GPS <Text style={styles.required}>*</Text></Text>
           <View style={styles.coordinatesRow}>
             <View style={styles.coordinateInput}>
               <Text style={[styles.coordinateLabel, { color: colors.textSecondary }]}>Latitude</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.latitude ? '#8B5CF6' : colors.border }]}
+                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.latitude ? colors.link : colors.border }]}
                 placeholder="49.4431"
                 placeholderTextColor={colors.textSecondary}
                 value={latitude?.toString() || ''}
@@ -484,7 +529,7 @@ export default function CreateMonumentScreen() {
             <View style={styles.coordinateInput}>
               <Text style={[styles.coordinateLabel, { color: colors.textSecondary }]}>Longitude</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.longitude ? '#8B5CF6' : colors.border }]}
+                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.longitude ? colors.link : colors.border }]}
                 placeholder="1.0993"
                 placeholderTextColor={colors.textSecondary}
                 value={longitude?.toString() || ''}
@@ -498,30 +543,53 @@ export default function CreateMonumentScreen() {
               {errors.longitude ? <Text style={styles.errorText}>{errors.longitude}</Text> : null}
             </View>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Tarif */}
-        <Animated.View entering={FadeInDown.delay(475)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Tarif d'entrée</Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.price ? '#8B5CF6' : colors.border }]}>
-            <Text style={[{ color: '#8B5CF6', fontSize: 16, fontWeight: '600' }]}>€</Text>
-            <TextInput
-              style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="0 (gratuit)"
-              placeholderTextColor={colors.textSecondary}
-              value={price}
-              onChangeText={(text) => {
-                setPrice(text);
-                validateField('price', text);
-              }}
-              keyboardType="numeric"
-            />
-          </View>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Tarif d'entrée <Text style={styles.required}>*</Text></Text>
+          
+          {/* Case à cocher Gratuit */}
+          <TouchableOpacity 
+            style={styles.checkboxContainer}
+            onPress={() => {
+              setIsFree(!isFree);
+              if (!isFree) {
+                setPrice('0');
+                validateField('price', '0');
+              }
+            }}
+          >
+            <View style={[styles.checkbox, { borderColor: colors.border }]}>
+              {isFree && (
+                <View style={[styles.checkboxChecked, { backgroundColor: '#1E40AF' }]} />
+              )}
+            </View>
+            <Text style={[styles.checkboxLabel, { color: colors.text }]}>Gratuit</Text>
+          </TouchableOpacity>
+
+          {/* Champ de saisie du prix */}
+          {!isFree && (
+            <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.price ? colors.link : colors.border }]}>
+              <Text style={[{ color: colors.link, fontSize: 16, fontWeight: '600' }]}>€</Text>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
+                placeholder="Ex: 8.50"
+                placeholderTextColor={colors.textSecondary}
+                value={price}
+                onChangeText={(text) => {
+                  setPrice(text);
+                  validateField('price', text);
+                }}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          )}
           {errors.price ? <Text style={styles.errorText}>{errors.price}</Text> : null}
-        </Animated.View>
+        </View>
 
         {/* Point d'intérêt */}
-        <Animated.View entering={FadeInDown.delay(485)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Point d'intérêt principal</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -531,24 +599,27 @@ export default function CreateMonumentScreen() {
             onChangeText={setPointOfInterest}
             maxLength={100}
           />
-        </Animated.View>
+        </View>
 
         {/* Catégorie */}
-        <Animated.View entering={FadeInDown.delay(500)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Catégorie</Text>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Catégorie <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
             style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={() => setShowCategoryModal(true)}
+            onPress={() => {
+              setTempCategory(category);
+              setShowCategoryModal(true);
+            }}
           >
             <View style={[styles.categoryIndicator, { backgroundColor: selectedCategoryData?.color }]} />
             <Text style={[styles.dateTimeText, { color: colors.text }]}>
               {selectedCategoryData?.label}
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Période historique */}
-        <Animated.View entering={FadeInDown.delay(600)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Période historique (optionnel)</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -558,36 +629,82 @@ export default function CreateMonumentScreen() {
             onChangeText={setHistoricalPeriod}
             maxLength={50}
           />
-        </Animated.View>
+        </View>
 
         {/* Durée de visite */}
-        <Animated.View entering={FadeInDown.delay(700)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Durée de visite estimée (optionnel)</Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Clock size={16} color="#8B5CF6" strokeWidth={2} />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="Ex: 1h30, 45 min..."
-              placeholderTextColor={colors.textSecondary}
-              value={visitDuration}
-              onChangeText={setVisitDuration}
-              maxLength={20}
-            />
+          
+          <View style={styles.durationContainer}>
+            {['30 min', '45 min', '1h', '2h'].map((duration) => (
+              <TouchableOpacity
+                key={duration}
+                style={[
+                  styles.durationButton,
+                  { borderColor: colors.border, backgroundColor: colors.background },
+                  visitDuration === duration && { backgroundColor: '#1E40AF', borderColor: '#1E40AF' }
+                ]}
+                onPress={() => setVisitDuration(duration)}
+              >
+                <Text style={[
+                  styles.durationButtonText, 
+                  { color: colors.text },
+                  visitDuration === duration && { color: '#FFFFFF' }
+                ]}>
+                  {duration}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={[
+                styles.durationButton,
+                { borderColor: colors.border, backgroundColor: colors.background },
+                !['30 min', '45 min', '1h', '2h'].includes(visitDuration) && { backgroundColor: '#1E40AF', borderColor: '#1E40AF' }
+              ]}
+              onPress={() => {
+                if (['30 min', '45 min', '1h', '2h'].includes(visitDuration)) {
+                  setVisitDuration('');
+                }
+              }}
+            >
+              <Text style={[
+                styles.durationButtonText, 
+                { color: colors.text },
+                !['30 min', '45 min', '1h', '2h'].includes(visitDuration) && { color: '#FFFFFF' }
+              ]}>
+                Autre
+              </Text>
+            </TouchableOpacity>
           </View>
-        </Animated.View>
+
+          {(!['30 min', '45 min', '1h', '2h'].includes(visitDuration)) && (
+            <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Clock size={16} color={colors.link} strokeWidth={2} />
+              <TextInput
+                style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
+                placeholder="Ex: 1h30..."
+                placeholderTextColor={colors.textSecondary}
+                value={visitDuration}
+                onChangeText={setVisitDuration}
+                maxLength={20}
+              />
+            </View>
+          )}
+        </View>
 
         {/* Images */}
-        <Animated.View entering={FadeInDown.delay(800)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Images <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
-            style={[styles.imagePickerButton, { borderColor: errors.images ? '#8B5CF6' : colors.border }]}
+            style={[styles.imagePickerButton, { borderColor: errors.images ? colors.link : colors.border }]}
             onPress={pickImage}
           >
             {selectedImage ? (
               <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
             ) : (
               <View style={styles.imagePickerContent}>
-                <Camera size={32} color="#8B5CF6" strokeWidth={1.5} />
+                <Camera size={32} color={colors.link} strokeWidth={1.5} />
                 <Text style={[styles.imagePickerText, { color: colors.textSecondary }]}>
                   Ajouter une image
                 </Text>
@@ -596,14 +713,14 @@ export default function CreateMonumentScreen() {
           </TouchableOpacity>
           {errors.images ? <Text style={styles.errorText}>{errors.images}</Text> : null}
 
-        </Animated.View>
+        </View>
 
         {/* Bouton de création */}
-        <Animated.View entering={FadeInDown.delay(900)} style={styles.submitSection}>
+        <View style={styles.submitSection}>
           <TouchableOpacity
             style={[
               styles.submitButton,
-              { backgroundColor: isSubmitting ? colors.textSecondary : '#8B5CF6' }
+              { backgroundColor: isSubmitting ? colors.textSecondary : colors.buttonPrimary }
             ]}
             onPress={handleSubmit}
             disabled={isSubmitting}
@@ -616,10 +733,24 @@ export default function CreateMonumentScreen() {
               </Text>
             )}
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+
+        {/* Gradient Overlay at Bottom */}
+        <LinearGradient
+          colors={['transparent', isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(250, 250, 250, 0.95)']}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 120,
+            pointerEvents: 'none'
+          }}
+        />
+      </View>
 
       {/* Modal de sélection de catégorie */}
       <Modal
@@ -631,33 +762,50 @@ export default function CreateMonumentScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Sélectionner une catégorie</Text>
-            {categories.map((cat) => (
+            <ScrollView style={{ maxHeight: 300 }}>
+              {categories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryOption,
+                    { backgroundColor: colors.background },
+                    tempCategory === cat.id && { backgroundColor: cat.color }
+                  ]}
+                  onPress={() => setTempCategory(cat.id)}
+                >
+                  <View style={[styles.categoryIndicator, { backgroundColor: cat.color }]} />
+                  <Text style={[
+                    styles.categoryOptionText,
+                    { color: colors.text },
+                    tempCategory === cat.id && { color: '#FFFFFF' }
+                  ]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryOption,
-                  { backgroundColor: colors.background },
-                  category === cat.id && { backgroundColor: cat.color }
-                ]}
+                style={[styles.modalButton, { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => setShowCategoryModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.buttonPrimary }]}
                 onPress={() => {
-                  setCategory(cat.id);
+                  setCategory(tempCategory);
                   setShowCategoryModal(false);
                 }}
               >
-                <View style={[styles.categoryIndicator, { backgroundColor: cat.color }]} />
-                <Text style={[
-                  styles.categoryOptionText,
-                  { color: colors.text },
-                  category === cat.id && { color: '#FFFFFF' }
-                ]}>
-                  {cat.label}
-                </Text>
+                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Valider</Text>
               </TouchableOpacity>
-            ))}
+            </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -665,21 +813,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  darkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  safeArea: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 60,
+    paddingBottom: 20,
     gap: 16,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -712,7 +880,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: {
-    color: '#8B5CF6',
+    color: '#1E40AF',
   },
   input: {
     borderWidth: 1,
@@ -772,7 +940,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorText: {
-    color: '#8B5CF6',
+    color: '#1E40AF',
     fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
@@ -882,7 +1050,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     maxHeight: 200,
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -900,7 +1068,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
   },
   coordinatesText: {
     fontSize: 12,
@@ -917,5 +1085,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  durationButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  durationButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

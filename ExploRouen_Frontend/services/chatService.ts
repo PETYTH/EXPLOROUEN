@@ -18,6 +18,9 @@ export interface ChatMessage {
   mediaUrl?: string;
   mediaType?: 'image' | 'video';
   thumbnailUrl?: string;
+  discussionId?: string;
+  activityId?: string;
+  chatId?: string;
 }
 
 export interface ChatParticipant {
@@ -31,7 +34,9 @@ export interface ChatParticipant {
 
 class ChatService {
   private socket: Socket | null = null;
+  private currentUserId: string | null = null;
   private messageCallbacks: Map<string, (message: ChatMessage) => void> = new Map();
+  private notificationCallbacks: Map<string, (notification: any) => void> = new Map();
   private typingCallbacks: Map<string, (user: any) => void> = new Map();
   private stopTypingCallbacks: Map<string, (user: any) => void> = new Map();
   
@@ -53,6 +58,11 @@ class ChatService {
 
     this.socket.on('connect', () => {
       console.log('✅ WebSocket connecté:', this.socket?.id);
+      // Ré-identifier si on a un userId stocké
+      if (this.currentUserId) {
+        console.log('🔄 Ré-identification automatique pour:', this.currentUserId);
+        this.socket?.emit('identify', this.currentUserId);
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -64,6 +74,18 @@ class ChatService {
       this.messageCallbacks.forEach(callback => callback(message));
     });
 
+    this.socket.on('new-notification', (notification: any) => {
+      console.log('🔔 Nouvelle notification reçue:', notification);
+      this.notificationCallbacks.forEach(callback => callback(notification));
+    });
+
+    this.socket.on('discussion-updated', (data: any) => {
+      console.log('📨 Discussion mise à jour:', data);
+      if (data.lastMessage) {
+         this.messageCallbacks.forEach(callback => callback(data.lastMessage));
+      }
+    });
+
     this.socket.on('user-typing', (user: any) => {
       this.typingCallbacks.forEach(callback => callback(user));
     });
@@ -73,8 +95,29 @@ class ChatService {
     });
 
     this.socket.on('connect_error', (error: any) => {
-      // Erreur de connexion WebSocket silencieuse
+      // Erreur de connexion WebSocket - gérer silencieusement
+      if (__DEV__) {
+        console.log('⚠️ WebSocket connection issue');
+      }
     });
+  }
+
+  // Identifier l'utilisateur pour les notifications personnelles
+  identify(userId: string) {
+    this.currentUserId = userId;
+    if (!this.socket) {
+      this.connect();
+    }
+    
+    if (this.socket?.connected) {
+      console.log('👤 Identification socket pour:', userId);
+      this.socket.emit('identify', userId);
+    } else {
+      this.socket?.once('connect', () => {
+        console.log('👤 Identification socket (différée) pour:', userId);
+        this.socket?.emit('identify', userId);
+      });
+    }
   }
 
   // Déconnecter WebSocket
@@ -148,8 +191,9 @@ class ChatService {
   async loadChatRooms() {
     this.isLoading = true;
     try {
-      // Fetch group chats (activities) - use direct URL that works
-      const activitiesResponse = await fetch(`http://192.168.1.62:5000/api/activities`);
+      // Fetch group chats (activities) - use environment variable
+      const backendUrl = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+      const activitiesResponse = await fetch(`${backendUrl}/activities`);
       if (activitiesResponse.ok) {
         const responseData = await activitiesResponse.json();
         console.log('📊 Activities API response:', responseData);
@@ -202,6 +246,18 @@ class ChatService {
   // Se désabonner des nouveaux messages
   offNewMessage(callbackId: string) {
     this.messageCallbacks.delete(callbackId);
+  }
+
+  // S'abonner aux nouvelles notifications
+  onNewNotification(callback: (notification: any) => void) {
+    const callbackId = Math.random().toString(36).substr(2, 9);
+    this.notificationCallbacks.set(callbackId, callback);
+    return callbackId;
+  }
+
+  // Se désabonner des nouvelles notifications
+  offNewNotification(callbackId: string) {
+    this.notificationCallbacks.delete(callbackId);
   }
 
   // S'abonner aux notifications de frappe
@@ -424,7 +480,15 @@ class ChatService {
         throw new Error(errorData.error || 'Erreur lors de l\'envoi du message privé');
       }
 
-      return await response.json();
+      const message = await response.json();
+      
+      // Envoyer via WebSocket pour la synchronisation temps réel des messages privés
+      this.socket?.emit('send-message', {
+        discussionId: chatId,
+        message
+      });
+      
+      return message;
     } catch (error) {
       throw error;
     }

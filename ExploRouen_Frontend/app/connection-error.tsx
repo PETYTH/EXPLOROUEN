@@ -8,18 +8,22 @@ import {
   Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { WifiOff, RefreshCw, Home } from 'lucide-react-native';
+import { WifiOff, LogOut } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@clerk/clerk-expo';
 
 export default function ConnectionErrorScreen() {
   const { colors } = useTheme();
+  const { signOut } = useAuth();
 
-  const handleRetry = () => {
-    router.back();
-  };
-
-  const handleGoHome = () => {
-    router.replace('/(tabs)/activities');
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/(auth)/auth');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      router.replace('/(auth)/auth');
+    }
   };
 
   return (
@@ -39,19 +43,11 @@ export default function ConnectionErrorScreen() {
         
         <View style={styles.buttonsContainer}>
           <TouchableOpacity 
-            style={[styles.button, styles.retryButton]} 
-            onPress={handleRetry}
+            style={[styles.button, styles.signOutButton]} 
+            onPress={handleSignOut}
           >
-            <RefreshCw size={20} color="#FFFFFF" strokeWidth={2} />
-            <Text style={styles.buttonText}>Réessayer</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, styles.homeButton, { borderColor: colors.border }]} 
-            onPress={handleGoHome}
-          >
-            <Home size={20} color="#8B5CF6" strokeWidth={2} />
-            <Text style={[styles.homeButtonText, { color: colors.text }]}>Accueil</Text>
+            <LogOut size={20} color="#FFFFFF" strokeWidth={2} />
+            <Text style={styles.buttonText}>Se déconnecter</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -97,19 +93,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  retryButton: {
-    backgroundColor: '#8B5CF6',
-  },
-  homeButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
+  signOutButton: {
+    backgroundColor: '#1E40AF',
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  homeButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

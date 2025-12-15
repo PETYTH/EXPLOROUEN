@@ -25,19 +25,27 @@ class ApiService {
     // console.log('🌐 Calling API:', url);
     
     try {
+      // Créer un timeout pour les requêtes (60s pour les uploads)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes
+      
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
         },
+        signal: controller.signal,
         ...options,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const error = {
           status: response.status,
-          message: response.status === 401 ? 'UNAUTHORIZED' : `HTTP error! status: ${response.status}`,
-          code: response.status.toString()
+          message: response.status === 401 ? 'SESSION_EXPIRED' : `HTTP error! status: ${response.status}`,
+          code: response.status.toString(),
+          silent: response.status === 401 // Flag pour erreurs silencieuses
         };
         throw error;
       }
@@ -55,14 +63,27 @@ class ApiService {
 
       return result.data as T;
     } catch (error: any) {
-      // Log seulement si ce n'est pas une erreur 401 (token expiré)
-      if (error.status !== 401) {
-        console.error(`API Error for ${endpoint}:`, error);
+      // Gérer les erreurs d'abort (timeout)
+      if (error.name === 'AbortError') {
+        if (__DEV__) {
+          console.warn(`⏱️ Timeout for ${endpoint}`);
+        }
+        throw {
+          status: 408,
+          message: 'La requête a pris trop de temps. Vérifiez votre connexion.',
+          code: 'TIMEOUT'
+        };
+      }
+      
+      // Log uniquement les erreurs non-auth en développement
+      if (__DEV__ && error.status !== 401) {
+        console.warn(`API Warning for ${endpoint}:`, error.status || 'Network Error');
       }
       
       // Si c'est une erreur réseau (pas de status), on l'indique
       if (!error.status) {
         error.message = 'Network request failed';
+        error.code = 'NETWORK_ERROR';
       }
       
       throw error;
@@ -222,6 +243,10 @@ class ApiService {
 
   static async getMonumentById(id: string): Promise<BackendMonument> {
     return this.makeRequest<BackendMonument>(`/monuments/${id}`);
+  }
+
+  static async getMonumentReviews(monumentId: string): Promise<any[]> {
+    return this.makeRequest<any[]>(`/monuments/${monumentId}/reviews`);
   }
 
   static async createMonument(monumentData: CreateMonumentData, token: string): Promise<BackendPlace> {
@@ -649,6 +674,14 @@ export interface BackendMonument {
   accessibility?: string;
   createdAt: string;
   updatedAt: string;
+  rating?: number;
+  reviewsCount?: number;
+  openingHours?: string;
+  price?: string;
+  history?: string;
+  address?: string;
+  duration?: string;
+  visitors?: string;
 }
 
 // Chat/Messages types

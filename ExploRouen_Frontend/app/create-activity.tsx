@@ -11,11 +11,11 @@ import {
   Image,
   ActivityIndicator,
   Modal,
+  FlatList,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Calendar, Clock, Users, DollarSign, Camera } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Calendar, Clock, Users, Euro, Camera, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRole } from '../hooks/useRole';
@@ -27,7 +27,7 @@ export default function CreateActivityScreen() {
   const { colors, isDark } = useTheme();
   const { getToken } = useAuth();
   const { user } = useUser();
-  const { isAdmin } = useRole();
+  const { isStaff } = useRole();
   const params = useLocalSearchParams();
   
   // Détecter le mode édition
@@ -35,8 +35,8 @@ export default function CreateActivityScreen() {
   const activityId = params.activityId as string;
   const activityData = params.activityData ? JSON.parse(params.activityData as string) : null;
 
-  // Vérifier si l'utilisateur est admin
-  if (!isAdmin) {
+  // Vérifier si l'utilisateur est staff
+  if (!isStaff) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.header}>
@@ -47,10 +47,10 @@ export default function CreateActivityScreen() {
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <Text style={[{ fontSize: 18, textAlign: 'center', color: colors.text, marginBottom: 10 }]}>
-            Accès administrateur requis
+            Accès staff requis
           </Text>
           <Text style={[{ fontSize: 14, textAlign: 'center', color: colors.textSecondary }]}>
-            Seuls les administrateurs peuvent créer des activités.
+            Seuls les membres du staff peuvent créer des activités.
           </Text>
         </View>
       </SafeAreaView>
@@ -62,10 +62,18 @@ export default function CreateActivityScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState(new Date());
+  const [tempDate, setTempDate] = useState(new Date());
+  const [tempTime, setTempTime] = useState(new Date());
   const [datePickerType, setDatePickerType] = useState<'date' | 'time'>('date');
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [customLocation, setCustomLocation] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [tempType, setTempType] = useState<string>('');
+  const [isFree, setIsFree] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -80,7 +88,7 @@ export default function CreateActivityScreen() {
     meetingPoint: '',
     requirements: '',
     difficulty: 'Facile',
-    category: 'Running',
+    category: '',
     latitude: '',
     longitude: '',
   });
@@ -141,12 +149,24 @@ export default function CreateActivityScreen() {
           return;
         }
         
+        // Trouver le type principal à partir du type backend
+        const findMainType = (backendType: string) => {
+          // Mapper les types backend vers les types frontend
+          const backendToFrontendMap: Record<string, string> = {
+            'SPORT': 'sport',
+            'CULTURAL': 'cultural',
+            'NATURE': 'nature',
+            'LEISURE': 'leisure',
+            'WELLNESS': 'wellness',
+            'EVENT': 'event'
+          };
+          return backendToFrontendMap[backendType] || 'sport';
+        };
+
         setFormData({
           title: activityData.title || '',
           description: activityData.description || '',
-          type: activityData.type === 'RUNNING' ? 'sport' : 
-                activityData.type === 'CULTURAL_VISIT' ? 'cultural' : 
-                activityData.type === 'TREASURE_HUNT' ? 'easter-hunt' : 'sport',
+          type: findMainType(activityData.type),
           date: formatDate(startDate),
           time: formatTime(startDate),
           location: activityData.meetingPoint || '',
@@ -158,10 +178,12 @@ export default function CreateActivityScreen() {
           difficulty: activityData.difficulty === 'EASY' ? 'Facile' :
                      activityData.difficulty === 'MEDIUM' ? 'Modéré' :
                      activityData.difficulty === 'HARD' ? 'Difficile' : 'Facile',
-          category: activityData.category || 'Running',
+          category: '',
           latitude: activityData.latitude?.toString() || '',
           longitude: activityData.longitude?.toString() || '',
         });
+        
+        setIsFree(activityData.price === 0 || activityData.price?.toString() === 'Gratuit' || activityData.price?.toString() === '0');
 
         // Pré-remplir l'image si elle existe
         if (activityData.image) {
@@ -179,10 +201,20 @@ export default function CreateActivityScreen() {
   }, [isEditMode, activityId]);
 
   const activityTypes = [
-    { value: 'sport', label: 'Sport', color: '#10B981' },
-    { value: 'cultural', label: 'Culture', color: '#F59E0B' },
-    { value: 'easter-hunt', label: 'Chasse aux œufs', color: '#EC4899' },
+    { value: 'sport', label: 'Sportive', color: '#10B981', backendValue: 'SPORT' },
+    { value: 'cultural', label: 'Culturelle', color: '#F59E0B', backendValue: 'CULTURAL' },
+    { value: 'nature', label: 'Nature', color: '#22C55E', backendValue: 'NATURE' },
+    { value: 'leisure', label: 'Loisir', color: '#3B82F6', backendValue: 'LEISURE' },
+    { value: 'wellness', label: 'Bien-être', color: '#EC4899', backendValue: 'WELLNESS' },
+    { value: 'event', label: 'Événementielle', color: '#1E40AF', backendValue: 'EVENT' }
   ];
+
+  // Synchroniser tempType avec formData.type
+  useEffect(() => {
+    if (formData.type) {
+      setTempType(formData.type);
+    }
+  }, [formData.type]);
 
   const suggestedLocations = [
     { name: 'Rouen Centre-ville', lat: '49.4431', lng: '1.0993' },
@@ -199,15 +231,71 @@ export default function CreateActivityScreen() {
 
   const difficulties = ['Facile', 'Modéré', 'Difficile'];
 
-  const categories = {
-    sport: ['Running', 'Yoga', 'Football', 'Tennis', 'Natation'],
-    cultural: ['Culture', 'Musée', 'Théâtre', 'Concert', 'Exposition'],
-    'easter-hunt': ['Jeu', 'Chasse au trésor', 'Énigmes']
+  // Fonction pour rechercher des adresses avec Nominatim (avec debounce)
+  const searchAddresses = (query: string) => {
+    // Annuler la recherche précédente si elle existe
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    // Créer un nouveau timeout pour la recherche
+    const timeout = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=fr&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'ExploRouen/1.0',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          console.error('Erreur API Nominatim:', response.status);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        setAddressSuggestions(data);
+        setShowSuggestions(data.length > 0);
+      } catch (error) {
+        console.error('Erreur recherche adresse:', error);
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 800); // Attendre 800ms après la dernière frappe
+
+    setSearchTimeout(timeout);
   };
 
-  // Obtenir les catégories pour le type sélectionné
-  const getAvailableCategories = () => {
-    return categories[formData.type as keyof typeof categories] || [];
+  // Fonction pour sélectionner une adresse
+  const selectAddress = (suggestion: any) => {
+    setFormData({
+      ...formData,
+      meetingPoint: suggestion.display_name,
+      latitude: suggestion.lat,
+      longitude: suggestion.lon
+    });
+    setShowSuggestions(false);
+  };
+
+  // Fonction pour sélectionner une adresse pour le lieu de l'activité
+  const selectAddressForActivity = (suggestion: any) => {
+    setFormData({
+      ...formData,
+      location: suggestion.display_name,
+      latitude: suggestion.lat,
+      longitude: suggestion.lon
+    });
+    setShowSuggestions(false);
   };
 
   const pickImage = async () => {
@@ -308,8 +396,8 @@ export default function CreateActivityScreen() {
           newErrors.maxParticipants = 'Le nombre de participants est obligatoire';
         } else if (isNaN(maxP) || maxP < 2) {
           newErrors.maxParticipants = 'Minimum 2 participants requis';
-        } else if (maxP > 50) {
-          newErrors.maxParticipants = 'Maximum 50 participants autorisés';
+        } else if (maxP > 1000) {
+          newErrors.maxParticipants = 'Maximum 1000 participants autorisés';
         } else {
           newErrors.maxParticipants = '';
         }
@@ -443,15 +531,9 @@ export default function CreateActivityScreen() {
         return;
       }
 
-      // Mapper le type frontend vers backend
-      const mapTypeToBackend = (frontendType: string) => {
-        switch (frontendType) {
-          case 'sport': return 'RUNNING';
-          case 'cultural': return 'CULTURAL_VISIT';
-          case 'easter-hunt': return 'TREASURE_HUNT';
-          default: return 'RUNNING';
-        }
-      };
+      // Mapper le type frontend vers le type backend
+      const selectedType = activityTypes.find(t => t.value === formData.type);
+      const backendType = selectedType?.backendValue || 'WALKING';
 
       // Mapper la difficulté frontend vers backend
       const mapDifficultyToBackend = (frontendDifficulty: string) => {
@@ -478,7 +560,7 @@ export default function CreateActivityScreen() {
       const activityData = {
         title: sanitizeInput(formData.title),
         description: sanitizeInput(formData.description),
-        type: mapTypeToBackend(formData.type),
+        type: backendType, // Type backend (WALKING, MONUMENT_VISIT, etc.)
         difficulty: mapDifficultyToBackend(formData.difficulty),
         startDate: (() => {
           try {
@@ -501,7 +583,6 @@ export default function CreateActivityScreen() {
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         image: imageUrl || undefined,
-        category: formData.category,
         requirements: formData.requirements ? sanitizeInput(formData.requirements) : undefined,
         organizerName: user?.fullName || user?.firstName || 'Utilisateur',
         organizerAvatar: user?.imageUrl,
@@ -511,10 +592,11 @@ export default function CreateActivityScreen() {
       // Debug: Afficher les données envoyées
       console.log('📤 Données envoyées à l\'API:', JSON.stringify(activityData, null, 2));
 
+      const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
       // Appel API pour créer ou modifier l'activité
       const url = isEditMode 
-        ? `http://192.168.1.62:5000/api/activities/${activityId}`
-        : 'http://192.168.1.62:5000/api/activities';
+        ? `${API_URL}/activities/${activityId}`
+        : `${API_URL}/activities`;
       
       const method = isEditMode ? 'PUT' : 'POST';
 
@@ -538,37 +620,96 @@ export default function CreateActivityScreen() {
           ]
         );
       } else {
-        const error = await response.json();
-        console.log('❌ Erreur détaillée du backend:', JSON.stringify(error, null, 2));
-        Alert.alert('Erreur', error.message || `Erreur lors de la ${isEditMode ? 'modification' : 'création'} de l'activité`);
+        const errorData = await response.json().catch(() => ({ message: 'Erreur inconnue' }));
+        if (__DEV__) {
+          console.warn('Erreur backend:', errorData);
+        }
+
+        // Gestion spécifique de l'erreur de date
+        const isDateError = errorData.errors?.some((err: any) => 
+          err.type === 'date.greater' || 
+          (err.message && err.message.includes('startDate') && err.message.includes('greater than'))
+        );
+
+        // Gestion spécifique de l'erreur de participants max
+        const isMaxParticipantsError = errorData.errors?.some((err: any) => 
+          (err.type === 'number.max' && (err.path?.includes('maxParticipants') || err.message?.includes('maxParticipants'))) ||
+          (err.message && err.message.includes('maxParticipants') && err.message.includes('less than or equal to'))
+        );
+
+        // Gestion spécifique de l'erreur de type d'activité
+        const isTypeError = errorData.errors?.some((err: any) => 
+          err.type === 'any.only' && (err.path?.includes('type') || err.message?.includes('type'))
+        );
+
+        if (isDateError) {
+          Alert.alert(
+            'Date invalide',
+            'La date de l\'activité est antérieure à aujourd\'hui. Veuillez choisir une date future.'
+          );
+        } else if (isMaxParticipantsError) {
+          Alert.alert(
+            'Nombre de participants invalide',
+            'Le nombre de participants dépasse la limite autorisée (1000).'
+          );
+        } else if (isTypeError) {
+          Alert.alert(
+            'Type d\'activité manquant',
+            'Veuillez sélectionner un type d\'activité (Marche, Course, Musée, etc.).'
+          );
+        } else {
+          Alert.alert(
+            'Erreur',
+            errorData.message || `Impossible de ${isEditMode ? 'modifier' : 'créer'} l'activité. Veuillez réessayer.`
+          );
+        }
       }
-    } catch (error) {
-      console.error('Erreur création activité:', error);
-      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    } catch (error: any) {
+      if (__DEV__) {
+        console.warn('Erreur création:', error);
+      }
+      
+      let errorMessage = 'Erreur de connexion au serveur';
+      if (error?.code === 'TIMEOUT') {
+        errorMessage = 'La requête a pris trop de temps. Vérifiez votre connexion et réessayez.';
+      } else if (error?.message?.includes('Network')) {
+        errorMessage = 'Erreur réseau. Vérifiez votre connexion Internet.';
+      }
+      
+      Alert.alert('Erreur', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+    <View style={styles.container}>
+      {/* Image de fond plein écran */}
+      <Image 
+        source={require('../assets/images/cathedrale-rouen.jpg')}
+        style={styles.backgroundImage}
+      />
+      
+      {/* Dark Overlay */}
+      <View style={styles.darkOverlay} />
+      
+      <View style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.buttonPrimary }]}>
             <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2} />
-        </TouchableOpacity>
-        
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {isEditMode ? 'Modifier l\'activité' : 'Créer une activité'}
-        </Text>
-      </Animated.View>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>
+            {isEditMode ? 'Modifier l\'activité' : 'Créer une activité'}
+          </Text>
+        </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Titre */}
-        <Animated.View entering={FadeInDown.delay(200)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Titre <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.title ? '#8B5CF6' : colors.border }]}
+            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.title ? colors.buttonPrimary : colors.border }]}
             placeholder="Nom de votre activité"
             placeholderTextColor={colors.textSecondary}
             value={formData.title}
@@ -578,13 +719,13 @@ export default function CreateActivityScreen() {
             }}
           />
           {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
-        </Animated.View>
+        </View>
 
         {/* Description */}
-        <Animated.View entering={FadeInDown.delay(250)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Description <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: errors.description ? '#8B5CF6' : colors.border }]}
+            style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: errors.description ? colors.buttonPrimary : colors.border }]}
             placeholder="Décrivez votre activité en détail (minimum 20 caractères)"
             placeholderTextColor={colors.textSecondary}
             value={formData.description}
@@ -596,93 +737,137 @@ export default function CreateActivityScreen() {
             numberOfLines={4}
           />
           {errors.description ? <Text style={styles.errorText}>{errors.description}</Text> : null}
-        </Animated.View>
+        </View>
 
         {/* Date */}
-        <Animated.View entering={FadeInDown.delay(300)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Date <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
             style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => {
               setDatePickerType('date');
+              setTempDate(selectedDate);
               setShowDatePicker(true);
             }}
           >
-            <Calendar size={16} color="#8B5CF6" strokeWidth={2} />
+            <Calendar size={16} color={colors.buttonPrimary} strokeWidth={2} />
             <Text style={[styles.dateTimeText, { color: formData.date ? colors.text : colors.textSecondary }]}>
               {formData.date || 'JJ/MM/AAAA'}
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Heure */}
-        <Animated.View entering={FadeInDown.delay(350)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Heure <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
             style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}
             onPress={() => {
               setDatePickerType('time');
+              setTempTime(selectedTime);
               setShowDatePicker(true);
             }}
           >
-            <Clock size={16} color="#8B5CF6" strokeWidth={2} />
+            <Clock size={16} color={colors.buttonPrimary} strokeWidth={2} />
             <Text style={[styles.dateTimeText, { color: formData.time ? colors.text : colors.textSecondary }]}>
               {formData.time || 'HH:MM'}
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Lieu */}
-        <Animated.View entering={FadeInDown.delay(400)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Lieu <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity
-            style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={() => setShowLocationModal(true)}
-          >
-            <MapPin size={16} color="#8B5CF6" strokeWidth={2} />
-            <Text style={[styles.dateTimeText, { color: formData.location ? colors.text : colors.textSecondary }]}>
-              {formData.location || "Sélectionner un lieu"}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Latitude */}
-        <Animated.View entering={FadeInDown.delay(850)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Latitude <Text style={styles.required}>*</Text></Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <MapPin size={16} color="#8B5CF6" strokeWidth={2} />
+          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.meetingPoint ? '#EF4444' : colors.border }]}>
+            <MapPin size={16} color={colors.buttonPrimary} strokeWidth={2} />
             <TextInput
               style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="49.4431"
+              placeholder="Ex: Place de la Cathédrale, 76000 Rouen"
               placeholderTextColor={colors.textSecondary}
-              value={formData.latitude}
-              onChangeText={(text) => setFormData({ ...formData, latitude: text })}
-              keyboardType="numeric"
+              value={formData.location}
+              onChangeText={(text) => {
+                setFormData({ ...formData, location: text });
+                searchAddresses(text);
+              }}
+              maxLength={200}
             />
           </View>
-        </Animated.View>
+          
+          {/* Suggestions d'adresses */}
+          {showSuggestions && addressSuggestions.length > 0 && (
+            <View style={[styles.suggestionsContainer, { backgroundColor: colors.surface }]}>
+              <FlatList
+                data={addressSuggestions}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.suggestionItem, { borderBottomColor: colors.border }]}
+                    onPress={() => selectAddressForActivity(item)}
+                  >
+                    <MapPin size={16} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={[styles.suggestionText, { color: colors.text }]} numberOfLines={2}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                scrollEnabled={false}
+                nestedScrollEnabled={true}
+              />
+            </View>
+          )}
+          
+          {/* Coordonnées affichées */}
+          {formData.latitude && formData.longitude && (
+            <View style={styles.coordinatesContainer}>
+              <Text style={[styles.coordinatesText, { color: colors.textSecondary }]}>
+                📍 {parseFloat(formData.latitude).toFixed(6)}, {parseFloat(formData.longitude).toFixed(6)}
+              </Text>
+            </View>
+          )}
+        </View>
 
-        {/* Longitude */}
-        <Animated.View entering={FadeInDown.delay(900)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Longitude <Text style={styles.required}>*</Text></Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <MapPin size={16} color="#8B5CF6" strokeWidth={2} />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="1.0993"
-              placeholderTextColor={colors.textSecondary}
-              value={formData.longitude}
-              onChangeText={(text) => setFormData({ ...formData, longitude: text })}
-              keyboardType="numeric"
-            />
+        {/* Coordonnées GPS */}
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Coordonnées GPS <Text style={styles.required}>*</Text></Text>
+          <View style={styles.coordinatesRow}>
+            <View style={styles.coordinateInput}>
+              <Text style={[styles.coordinateLabel, { color: colors.textSecondary }]}>Latitude</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.latitude ? '#EF4444' : colors.border }]}
+                placeholder="49.4431"
+                placeholderTextColor={colors.textSecondary}
+                value={formData.latitude}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, latitude: text });
+                  validateField('latitude', text);
+                }}
+                keyboardType="numeric"
+              />
+              {errors.latitude ? <Text style={styles.errorText}>{errors.latitude}</Text> : null}
+            </View>
+            <View style={styles.coordinateInput}>
+              <Text style={[styles.coordinateLabel, { color: colors.textSecondary }]}>Longitude</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: errors.longitude ? '#EF4444' : colors.border }]}
+                placeholder="1.0993"
+                placeholderTextColor={colors.textSecondary}
+                value={formData.longitude}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, longitude: text });
+                  validateField('longitude', text);
+                }}
+                keyboardType="numeric"
+              />
+              {errors.longitude ? <Text style={styles.errorText}>{errors.longitude}</Text> : null}
+            </View>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Participants max */}
-        <Animated.View entering={FadeInDown.delay(950)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Participants max</Text>
           <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Users size={16} color="#8B5CF6" strokeWidth={2} />
+            <Users size={16} color="#1E40AF" strokeWidth={2} />
             <TextInput
               style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
               placeholder="20"
@@ -692,86 +877,65 @@ export default function CreateActivityScreen() {
               keyboardType="numeric"
             />
           </View>
-        </Animated.View>
+        </View>
 
         {/* Prix */}
-        <Animated.View entering={FadeInDown.delay(1000)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Prix (€)</Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <DollarSign size={16} color="#8B5CF6" strokeWidth={2} />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="0"
-              placeholderTextColor={colors.textSecondary}
-              value={formData.price}
-              onChangeText={(text) => setFormData({ ...formData, price: text })}
-              keyboardType="numeric"
-            />
-          </View>
-        </Animated.View>
+          
+          {/* Case à cocher Gratuit */}
+          <TouchableOpacity 
+            style={styles.checkboxContainer}
+            onPress={() => {
+              setIsFree(!isFree);
+              if (!isFree) {
+                setFormData({ ...formData, price: '0' });
+              }
+            }}
+          >
+            <View style={[styles.checkbox, { borderColor: colors.border }]}>
+              {isFree && (
+                <View style={[styles.checkboxChecked, { backgroundColor: '#1E40AF' }]} />
+              )}
+            </View>
+            <Text style={[styles.checkboxLabel, { color: colors.text }]}>Gratuit</Text>
+          </TouchableOpacity>
+
+          {/* Champ de saisie du prix */}
+          {!isFree && (
+            <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Euro size={16} color="#1E40AF" strokeWidth={2} />
+              <TextInput
+                style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
+                placeholder="Ex: 15"
+                placeholderTextColor={colors.textSecondary}
+                value={formData.price}
+                onChangeText={(text) => setFormData({ ...formData, price: text })}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          )}
+        </View>
 
         {/* Type d'activité */}
-        <Animated.View entering={FadeInDown.delay(550)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Type d'activité <Text style={styles.required}>*</Text></Text>
-          <View style={styles.categoriesGrid}>
-            {activityTypes.map((type) => (
-              <TouchableOpacity
-                key={type.value}
-                style={[
-                  styles.categoryButton,
-                  formData.type === type.value && { ...styles.categoryButtonActive, backgroundColor: type.color },
-                  { borderColor: type.color }
-                ]}
-                onPress={() => {
-                  // Réinitialiser la catégorie si elle n'est pas disponible pour le nouveau type
-                  const newCategories = categories[type.value as keyof typeof categories] || [];
-                  const newCategory = newCategories.includes(formData.category) ? formData.category : newCategories[0] || '';
-                  setFormData({ ...formData, type: type.value, category: newCategory });
-                }}
-              >
-                <Text style={[
-                  styles.categoryText,
-                  { color: formData.type === type.value ? '#FFFFFF' : type.color },
-                  formData.type === type.value && styles.categoryTextActive
-                ]}>
-                  {type.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-
-        {/* Catégorie */}
-        <Animated.View entering={FadeInDown.delay(600)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Catégorie <Text style={styles.required}>*</Text></Text>
-          <View style={styles.categoriesGrid}>
-            {getAvailableCategories().map((category) => {
-              const currentTypeColor = activityTypes.find(type => type.value === formData.type)?.color || '#8B5CF6';
-              return (
-                <TouchableOpacity
-                  key={category}
-                  style={[
-                    styles.categoryButton,
-                    formData.category === category && { ...styles.categoryButtonActive, backgroundColor: currentTypeColor },
-                    { borderColor: currentTypeColor }
-                  ]}
-                  onPress={() => setFormData({ ...formData, category })}
-                >
-                  <Text style={[
-                    styles.categoryText,
-                    { color: formData.category === category ? '#FFFFFF' : currentTypeColor },
-                    formData.category === category && styles.categoryTextActive
-                  ]}>
-                    {category}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </Animated.View>
+          <TouchableOpacity
+            style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={() => {
+              setTempType(formData.type);
+              setShowTypeModal(true);
+            }}
+          >
+            <View style={[styles.categoryIndicator, { backgroundColor: activityTypes.find(t => t.value === formData.type)?.color }]} />
+            <Text style={[styles.dateTimeText, { color: colors.text }]}>
+              {activityTypes.find(t => t.value === formData.type)?.label}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Difficulté */}
-        <Animated.View entering={FadeInDown.delay(650)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Difficulté <Text style={styles.required}>*</Text></Text>
           <View style={styles.categoriesGrid}>
             {difficulties.map((difficulty) => (
@@ -794,40 +958,89 @@ export default function CreateActivityScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </Animated.View>
+        </View>
 
         {/* Durée */}
-        <Animated.View entering={FadeInDown.delay(700)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Durée (en minutes)</Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Clock size={16} color="#8B5CF6" strokeWidth={2} />
-            <TextInput
-              style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="90"
-              placeholderTextColor={colors.textSecondary}
-              value={formData.duration}
-              onChangeText={(text) => setFormData({ ...formData, duration: text })}
-            />
+        <View style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Durée</Text>
+          
+          <View style={styles.durationContainer}>
+            {['20 min', '30 min', '1h', '2h'].map((duration) => (
+              <TouchableOpacity
+                key={duration}
+                style={[
+                  styles.durationButton,
+                  { borderColor: colors.border, backgroundColor: colors.background },
+                  formData.duration === duration && { backgroundColor: '#1E40AF', borderColor: '#1E40AF' }
+                ]}
+                onPress={() => setFormData({ ...formData, duration: duration })}
+              >
+                <Text style={[
+                  styles.durationButtonText, 
+                  { color: colors.text },
+                  formData.duration === duration && { color: '#FFFFFF' }
+                ]}>
+                  {duration}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={[
+                styles.durationButton,
+                { borderColor: colors.border, backgroundColor: colors.background },
+                !['20 min', '30 min', '1h', '2h'].includes(formData.duration) && { backgroundColor: '#1E40AF', borderColor: '#1E40AF' }
+              ]}
+              onPress={() => {
+                if (['20 min', '30 min', '1h', '2h'].includes(formData.duration)) {
+                  setFormData({ ...formData, duration: '' });
+                }
+              }}
+            >
+              <Text style={[
+                styles.durationButtonText, 
+                { color: colors.text },
+                !['20 min', '30 min', '1h', '2h'].includes(formData.duration) && { color: '#FFFFFF' }
+              ]}>
+                Autre
+              </Text>
+            </TouchableOpacity>
           </View>
-        </Animated.View>
+
+          {(!['20 min', '30 min', '1h', '2h'].includes(formData.duration)) && (
+            <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Clock size={16} color={colors.buttonPrimary} strokeWidth={2} />
+              <TextInput
+                style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
+                placeholder="Ex: 45 min"
+                placeholderTextColor={colors.textSecondary}
+                value={formData.duration}
+                onChangeText={(text) => setFormData({ ...formData, duration: text })}
+              />
+            </View>
+          )}
+        </View>
 
         {/* Point de rendez-vous */}
-        <Animated.View entering={FadeInDown.delay(750)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>Point de rendez-vous</Text>
-          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <MapPin size={16} color="#8B5CF6" strokeWidth={2} />
+        <View style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.inputLabel, { color: colors.text }]}>Point de rendez-vous <Text style={styles.required}>*</Text></Text>
+          <View style={[styles.inputWithIcon, { backgroundColor: colors.background, borderColor: errors.meetingPoint ? '#EF4444' : colors.border }]}>
+            <MapPin size={16} color="#1E40AF" strokeWidth={2} />
             <TextInput
               style={[styles.textInput, { backgroundColor: 'transparent', borderWidth: 0, flex: 1, color: colors.text }]}
-              placeholder="Point de rencontre"
+              placeholder="Ex: Devant la cathédrale, à côté de la pharmacie..."
               placeholderTextColor={colors.textSecondary}
               value={formData.meetingPoint}
               onChangeText={(text) => setFormData({ ...formData, meetingPoint: text })}
             />
           </View>
-        </Animated.View>
+          {errors.meetingPoint ? <Text style={styles.errorText}>{errors.meetingPoint}</Text> : null}
+          
+          {/* Coordonnées affichées */}
+        </View>
 
         {/* Prérequis */}
-        <Animated.View entering={FadeInDown.delay(800)} style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.smallInputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Prérequis</Text>
           <TextInput
             style={[styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
@@ -838,10 +1051,10 @@ export default function CreateActivityScreen() {
             multiline
             numberOfLines={3}
           />
-        </Animated.View>
+        </View>
 
         {/* Image */}
-        <Animated.View entering={FadeInDown.delay(850)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.inputCard, { backgroundColor: colors.surface }]}>
           <Text style={[styles.inputLabel, { color: colors.text }]}>Image <Text style={styles.required}>*</Text></Text>
           <TouchableOpacity
             style={[styles.imagePickerButton, { borderColor: colors.border }]}
@@ -851,19 +1064,19 @@ export default function CreateActivityScreen() {
               <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
             ) : (
               <View style={styles.imagePickerContent}>
-                <Camera size={32} color="#8B5CF6" strokeWidth={1.5} />
+                <Camera size={32} color={colors.buttonPrimary} strokeWidth={1.5} />
                 <Text style={[styles.imagePickerText, { color: colors.textSecondary }]}>
                   Ajouter une image
                 </Text>
               </View>
             )}
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Submit Button */}
-        <Animated.View entering={FadeInDown.delay(400)} style={styles.submitSection}>
+        <View style={styles.submitSection}>
           <TouchableOpacity 
-            style={[styles.submitButton, { backgroundColor: loading ? '#666' : '#8B5CF6' }]} 
+            style={[styles.submitButton, { backgroundColor: loading ? '#666' : colors.buttonPrimary }]}
             onPress={handleSubmit}
             disabled={loading}
           >
@@ -875,10 +1088,23 @@ export default function CreateActivityScreen() {
               </Text>
             )}
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Gradient Overlay at Bottom */}
+        <LinearGradient
+          colors={['transparent', isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(250, 250, 250, 0.95)']}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 120,
+            pointerEvents: 'none'
+          }}
+        />
 
       {/* Date/Time Picker Modal */}
       <Modal
@@ -886,21 +1112,21 @@ export default function CreateActivityScreen() {
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowDatePicker(false)}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
+        >
           <View style={{
-            backgroundColor: colors.surface,
-            borderRadius: 20,
-            padding: 20,
-            margin: 20,
-            minWidth: 300,
-            maxWidth: '90%'
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center'
           }}>
+            <View style={{
+              backgroundColor: colors.surface,
+              borderRadius: 20,
+              padding: 20,
+              margin: 20,
+              minWidth: 300,
+              maxWidth: '90%'
+            }}>
             <Text style={{
               fontSize: 18,
               fontWeight: 'bold',
@@ -912,40 +1138,46 @@ export default function CreateActivityScreen() {
             </Text>
             
             <DateTimePicker
-              value={datePickerType === 'date' ? selectedDate : selectedTime}
+              value={datePickerType === 'date' ? tempDate : tempTime}
               mode={datePickerType}
               display="spinner"
               minimumDate={datePickerType === 'date' ? new Date() : undefined}
               onChange={(event, selectedValue) => {
                 if (selectedValue) {
                   if (datePickerType === 'date') {
-                    setSelectedDate(selectedValue);
-                    setFormData({ ...formData, date: formatDate(selectedValue) });
+                    setTempDate(selectedValue);
                   } else {
-                    setSelectedTime(selectedValue);
-                    setFormData({ ...formData, time: formatTime(selectedValue) });
+                    setTempTime(selectedValue);
                   }
-                  setShowDatePicker(false);
                 }
               }}
-              textColor={isDark ? "white" : "#8B5CF6"}
+              textColor={isDark ? "white" : "#000000"}
               style={{ alignSelf: 'center' }}
             />
             
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-around',
-              marginTop: 20
+              marginTop: 20,
+              gap: 12
             }}>
               <TouchableOpacity
                 style={{
+                  flex: 1,
                   backgroundColor: colors.border,
                   paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  minWidth: 80
+                  paddingVertical: 12,
+                  borderRadius: 10
                 }}
-                onPress={() => setShowDatePicker(false)}
+                onPress={() => {
+                  setShowDatePicker(false);
+                  // Réinitialiser les valeurs temporaires
+                  if (datePickerType === 'date') {
+                    setTempDate(selectedDate);
+                  } else {
+                    setTempTime(selectedTime);
+                  }
+                }}
               >
                 <Text style={{
                   color: colors.text,
@@ -955,32 +1187,60 @@ export default function CreateActivityScreen() {
                   Annuler
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.buttonPrimary,
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 10
+                }}
+                onPress={() => {
+                  if (datePickerType === 'date') {
+                    setSelectedDate(tempDate);
+                    setFormData({ ...formData, date: formatDate(tempDate) });
+                  } else {
+                    setSelectedTime(tempTime);
+                    setFormData({ ...formData, time: formatTime(tempTime) });
+                  }
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={{
+                  color: '#FFFFFF',
+                  textAlign: 'center',
+                  fontWeight: '600'
+                }}>
+                  Confirmer
+                </Text>
+              </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      {/* Location Picker Modal */}
-      {showLocationModal && (
-        <View style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 999999
-        }}>
+        {/* Location Picker Modal */}
+        <Modal
+          visible={showLocationModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowLocationModal(false)}
+        >
           <View style={{
-            backgroundColor: colors.background,
-            borderRadius: 20,
-            padding: 20,
-            margin: 20,
-            maxHeight: '80%',
-            minWidth: 300
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 999999
           }}>
+            <View style={{
+              backgroundColor: colors.background,
+              borderRadius: 20,
+              padding: 20,
+              margin: 20,
+              maxHeight: '80%',
+              minWidth: 300
+            }}>
             <Text style={{
               fontSize: 18,
               fontWeight: 'bold',
@@ -1056,11 +1316,66 @@ export default function CreateActivityScreen() {
                   Valider
                 </Text>
               </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      )}
-    </SafeAreaView>
+        </Modal>
+
+        {/* Modal de sélection de type */}
+        <Modal
+          visible={showTypeModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowTypeModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Sélectionner un type</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {activityTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.value}
+                  style={[
+                    styles.categoryOption,
+                    { backgroundColor: colors.background },
+                    tempType === type.value && { backgroundColor: type.color }
+                  ]}
+                  onPress={() => setTempType(type.value)}
+                >
+                  <View style={[styles.categoryIndicator, { backgroundColor: type.color }]} />
+                  <Text style={[
+                    styles.categoryOptionText,
+                    { color: colors.text },
+                    tempType === type.value && { color: '#FFFFFF' }
+                  ]}>
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => setShowTypeModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.buttonPrimary }]}
+                onPress={() => {
+                  setFormData({ ...formData, type: tempType });
+                  setShowTypeModal(false);
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Valider</Text>
+              </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </View>
   );
 }
 
@@ -1068,15 +1383,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  darkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  safeArea: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 20,
     gap: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -1090,14 +1422,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#8B5CF6',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   headerTitle: {
     fontSize: 24,
@@ -1122,22 +1448,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: {
-    color: '#8B5CF6',
+    color: '#1E40AF',
   },
   textInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    fontWeight: '500',
   },
   textArea: {
     borderWidth: 1,
@@ -1189,7 +1504,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   categoryButtonActive: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   categoryText: {
     fontSize: 14,
@@ -1202,7 +1517,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   submitButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
@@ -1211,7 +1526,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1250,6 +1565,27 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 16,
+    fontWeight: '500',
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  errorText: {
+    color: '#1E40AF',
+    fontSize: 12,
+    marginTop: 4,
     fontWeight: '500',
   },
   inputCard: {
@@ -1320,16 +1656,127 @@ const styles = StyleSheet.create({
   coordinatesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 8,
   },
   coordinatesCompact: {
     fontSize: 11,
     fontWeight: '400',
+  },
+  suggestionsContainer: {
+    marginTop: 8,
+    borderRadius: 8,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  suggestionText: {
+    flex: 1,
+    fontSize: 14,
   },
   customLocationSection: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 50,
+  },
+  selectButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    margin: 20,
+    borderRadius: 20,
+    padding: 20,
+    minWidth: 300,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  typeOptions: {
+    maxHeight: 500,
+  },
+  typeSection: {
+    marginBottom: 24,
+  },
+  typeSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryOptionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  categoryOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  categoryIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   customLocationLabel: {
     fontSize: 14,
@@ -1359,31 +1806,64 @@ const styles = StyleSheet.create({
     backgroundColor: '#6B7280',
   },
   confirmButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 8,
   },
-  errorText: {
-    color: '#8B5CF6',
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderRadius: 4,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  coordinatesRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  coordinateInput: {
+    flex: 1,
+  },
+  coordinateLabel: {
     fontSize: 12,
-    marginTop: 4,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  durationContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  durationButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  durationButtonText: {
+    fontSize: 14,
     fontWeight: '500',
   },
 });

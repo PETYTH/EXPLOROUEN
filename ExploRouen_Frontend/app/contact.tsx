@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Send, Mail, Phone, MapPin } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@clerk/clerk-expo';
 
@@ -35,7 +34,11 @@ export default function ContactScreen() {
     setIsLoading(true);
     try {
       const token = await getToken();
-      const backendUrl = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://192.168.1.62:5000/api';
+      const backendUrl = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+      
+      console.log('📧 Envoi du message de contact...');
+      console.log('📍 URL:', `${backendUrl}/contact`);
+      console.log('📝 Données:', formData);
       
       const response = await fetch(`${backendUrl}/contact`, {
         method: 'POST',
@@ -46,7 +49,11 @@ export default function ContactScreen() {
         body: JSON.stringify(formData),
       });
 
+      console.log('📡 Statut de la réponse:', response.status);
+      
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Message envoyé avec succès:', data);
         Alert.alert(
           'Message envoyé !',
           'Nous vous répondrons dans les plus brefs délais.',
@@ -54,11 +61,13 @@ export default function ContactScreen() {
         );
         setFormData({ name: '', email: '', subject: '', message: '' });
       } else {
-        throw new Error('Erreur lors de l\'envoi');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erreur du backend:', errorData);
+        throw new Error(errorData.message || 'Erreur lors de l\'envoi');
       }
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      Alert.alert('Erreur', 'Impossible d\'envoyer le message. Veuillez réessayer.');
+    } catch (error: any) {
+      console.error('❌ Erreur lors de l\'envoi du message:', error);
+      Alert.alert('Erreur', error.message || 'Impossible d\'envoyer le message. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
@@ -71,40 +80,40 @@ export default function ContactScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity 
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.buttonPrimary }]}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
+          <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
         
         <Text style={[styles.headerTitle, { color: colors.text }]}>Nous contacter</Text>
-      </Animated.View>
+      </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Contact Info */}
-        <Animated.View entering={FadeInDown.delay(200)} style={[styles.contactInfo, { backgroundColor: colors.surface }]}>
+        <View style={[styles.contactInfo, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Informations de contact</Text>
           
           <View style={styles.contactItem}>
-            <Mail size={20} color="#8B5CF6" strokeWidth={2} />
+            <Mail size={20} color="#1E40AF" strokeWidth={2} />
             <Text style={[styles.contactText, { color: colors.textSecondary }]}>contact@explorouen.fr</Text>
           </View>
           
           <View style={styles.contactItem}>
-            <Phone size={20} color="#8B5CF6" strokeWidth={2} />
+            <Phone size={20} color="#1E40AF" strokeWidth={2} />
             <Text style={[styles.contactText, { color: colors.textSecondary }]}>+33 2 35 XX XX XX</Text>
           </View>
           
           <View style={styles.contactItem}>
-            <MapPin size={20} color="#8B5CF6" strokeWidth={2} />
+            <MapPin size={20} color="#1E40AF" strokeWidth={2} />
             <Text style={[styles.contactText, { color: colors.textSecondary }]}>Rouen, Normandie, France</Text>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Contact Form */}
-        <Animated.View entering={FadeInDown.delay(300)} style={styles.formSection}>
+        <View style={styles.formSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Envoyez-nous un message</Text>
           
           <View style={[styles.inputGroup, { backgroundColor: colors.surface }]}>
@@ -166,7 +175,7 @@ export default function ContactScreen() {
               {isLoading ? 'Envoi en cours...' : 'Envoyer le message'}
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -190,7 +199,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(40, 40, 40, 0.95)',
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -252,7 +261,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   submitButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
@@ -261,7 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

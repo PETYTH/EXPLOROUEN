@@ -25,7 +25,9 @@ interface CaptchaChallenge {
   correctAnswers: number[];
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isDesktop = height > 900;
+const isTablet = height > 600 && height <= 900;
 
 export default function ImageCaptcha({ onVerify, onRefresh }: ImageCaptchaProps) {
   const [isRobotChecked, setIsRobotChecked] = useState(false);
@@ -150,7 +152,7 @@ export default function ImageCaptcha({ onVerify, onRefresh }: ImageCaptchaProps)
         'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=150&h=150&fit=crop', // bus
         'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=150&h=150&fit=crop', // car
         'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=150&h=150&fit=crop', // building
-        'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=150&h=150&fit=crop', // bus
+        'https://images.unsplash.com/photo-1570125909232-eb263c8d2000?w=150&h=150&fit=crop', // bus
         'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=150&h=150&fit=crop', // flowers
         'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=150&h=150&fit=crop', // bus
         'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?w=150&h=150&fit=crop', // bicycle
@@ -321,7 +323,7 @@ export default function ImageCaptcha({ onVerify, onRefresh }: ImageCaptchaProps)
                 <View style={styles.questionContainer}>
                   <Text style={styles.question}>{currentChallenge.question}</Text>
                   <TouchableOpacity onPress={refreshChallenge} style={styles.refreshButton}>
-                    <Ionicons name="refresh-outline" size={20} color="#8B5CF6" />
+                    <Ionicons name="refresh-outline" size={20} color="#1E40AF" />
                   </TouchableOpacity>
                 </View>
 
@@ -348,7 +350,7 @@ export default function ImageCaptcha({ onVerify, onRefresh }: ImageCaptchaProps)
                             <Ionicons 
                               name="checkmark" 
                               size={16} 
-                              color={isVerified ? (currentChallenge.correctAnswers.includes(index) ? "#10B981" : "#EF4444") : "#8B5CF6"} 
+                              color={isVerified ? (currentChallenge.correctAnswers.includes(index) ? "#10B981" : "#EF4444") : "#1E40AF"} 
                             />
                           </View>
                         )}
@@ -365,7 +367,7 @@ export default function ImageCaptcha({ onVerify, onRefresh }: ImageCaptchaProps)
                       disabled={selectedImages.length === 0 || isLoading}
                     >
                       <LinearGradient
-                        colors={['#8B5CF6', '#8B5CF6']}
+                        colors={['#1E40AF', '#3B82F6']}
                         style={styles.verifyButtonGradient}
                       >
                         <Text style={styles.verifyButtonText}>
@@ -426,7 +428,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   captchaLogo: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -456,7 +458,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   modalTitle: {
     fontSize: 18,
@@ -483,7 +485,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   imageScrollView: {
-    maxHeight: 300,
+    maxHeight: isDesktop ? 600 : isTablet ? 450 : 300,
   },
   imageGrid: {
     flexDirection: 'row',
@@ -502,7 +504,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   selectedImage: {
-    borderColor: '#8B5CF6',
+    borderColor: '#1E40AF',
   },
   correctImage: {
     borderColor: '#10B981',
@@ -558,5 +560,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  timeRemaining: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  attemptsLeft: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#DC2626',
+    marginLeft: 4,
   },
 });

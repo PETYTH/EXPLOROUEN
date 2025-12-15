@@ -4,10 +4,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Text,
 } from 'react-native';
 import { Home, Landmark, Calendar, MessageCircle, Map, User } from "lucide-react-native";
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRouter, usePathname } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +22,8 @@ export default function FloatingMenu({ onNavigate }: FloatingMenuProps) {
   const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const { totalUnreadCount, systemNotificationCount } = useNotifications();
+  const totalNotifications = totalUnreadCount + systemNotificationCount;
 
   const menuItems = [
     { 
@@ -69,7 +74,7 @@ export default function FloatingMenu({ onNavigate }: FloatingMenuProps) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.menuContainer, { backgroundColor: 'rgba(40, 40, 40, 0.95)' }]}>
+      <View style={[styles.menuContainer, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
         {menuItems.map((item, index) => {
           const IconComponent = item.icon;
           const isActive = isCurrentRoute(item.route);
@@ -79,16 +84,37 @@ export default function FloatingMenu({ onNavigate }: FloatingMenuProps) {
               key={index}
               style={[
                 styles.menuButton,
-                isActive && styles.activeButton
               ]}
               onPress={() => handleItemPress(item.route)}
               activeOpacity={0.7}
             >
-              <IconComponent
-                size={24}
-                color={isActive ? '#FFFFFF' : '#CCCCCC'}
-                strokeWidth={2}
-              />
+              {isActive ? (
+                <LinearGradient
+                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                  style={styles.activeButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <IconComponent
+                    size={24}
+                    color="#FFFFFF"
+                    strokeWidth={2}
+                  />
+                </LinearGradient>
+              ) : (
+                <IconComponent
+                  size={24}
+                  color={colors.textSecondary}
+                  strokeWidth={2}
+                />
+              )}
+              {item.route === '/messages' && totalUnreadCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: '#EF4444' }]}>
+                  <Text style={styles.badgeText}>
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -129,8 +155,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 2,
+    position: 'relative',
   },
   activeButton: {
-    backgroundColor: '#8B5CF6',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });

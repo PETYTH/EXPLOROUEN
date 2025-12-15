@@ -33,6 +33,7 @@ export default function MediaPicker({ onMediaSelected, onClose }: MediaPickerPro
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      exif: false,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -82,6 +83,7 @@ export default function MediaPicker({ onMediaSelected, onClose }: MediaPickerPro
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      exif: false,
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -106,7 +108,7 @@ export default function MediaPicker({ onMediaSelected, onClose }: MediaPickerPro
           style={[styles.option, { backgroundColor: colors.background }]}
           onPress={takePhoto}
         >
-          <Camera size={24} color="#8B5CF6" />
+          <Camera size={24} color="#1E40AF" />
           <Text style={[styles.optionText, { color: colors.text }]}>Prendre une photo</Text>
         </TouchableOpacity>
 
@@ -114,7 +116,7 @@ export default function MediaPicker({ onMediaSelected, onClose }: MediaPickerPro
           style={[styles.option, { backgroundColor: colors.background }]}
           onPress={pickImage}
         >
-          <Image size={24} color="#8B5CF6" />
+          <Image size={24} color="#1E40AF" />
           <Text style={[styles.optionText, { color: colors.text }]}>Choisir une image</Text>
         </TouchableOpacity>
 
@@ -122,7 +124,7 @@ export default function MediaPicker({ onMediaSelected, onClose }: MediaPickerPro
           style={[styles.option, { backgroundColor: colors.background }]}
           onPress={pickVideo}
         >
-          <Video size={24} color="#8B5CF6" />
+          <Video size={24} color="#1E40AF" />
           <Text style={[styles.optionText, { color: colors.text }]}>Choisir une vidéo</Text>
         </TouchableOpacity>
       </View>

@@ -13,6 +13,9 @@ import {
   Image,
   ImageBackground,
   Keyboard,
+  Animated,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +48,10 @@ export default function AuthScreen() {
   const { startOAuthFlow: facebookOAuth } = useOAuth({ strategy: 'oauth_facebook' });
   const router = useRouter();
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
@@ -62,6 +69,9 @@ export default function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [code, setCode] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [rgpdConsent, setRgpdConsent] = useState(false);
+  const [showRgpdModal, setShowRgpdModal] = useState(false);
+  const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
   
   // Error state
   const [loginError, setLoginError] = useState('');
@@ -149,7 +159,11 @@ export default function AuthScreen() {
 
       if (createdSessionId) {
         setActive!({ session: createdSessionId });
-        router.replace('/(tabs)');
+        
+        // Délai pour éviter les conflits de redirection avec _layout.tsx
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 100);
       }
     } catch (err: any) {
       console.error(`${provider} OAuth error:`, err);
@@ -198,21 +212,51 @@ export default function AuthScreen() {
     }
   };
 
-  const switchMode = () => {
-    setIsLogin(!isLogin);
-    // Clear fields when switching
-    setEmailAddress('');
-    setPassword('');
-    setLastName('');
-    setFirstName('');
-    setConfirmPassword('');
-    setCode('');
-    setPendingVerification(false);
-    setCaptchaVerified(false);
-    setLoginError('');
-    setErrors({});
-    setShowPassword(false);
-    setShowConfirmPassword(false);
+  const switchMode = (newMode: boolean) => {
+    if (newMode === isLogin) return;
+    
+    const updateState = () => {
+      setIsLogin(newMode);
+      setEmailAddress('');
+      setPassword('');
+      setLastName('');
+      setFirstName('');
+      setConfirmPassword('');
+      setCode('');
+      setPendingVerification(false);
+      setCaptchaVerified(false);
+      setRgpdConsent(false);
+      setLoginError('');
+      setErrors({});
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+    };
+    
+    // Animation simplifiée pour éviter les erreurs
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      updateState();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+    
+    Animated.timing(scaleAnim, {
+      toValue: 0.95,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
   const validateLoginForm = () => {
@@ -230,6 +274,10 @@ export default function AuthScreen() {
 
     if (!captchaVerified) {
       newErrors.captcha = 'Veuillez compléter la vérification de sécurité';
+    }
+
+    if (!rgpdConsent) {
+      newErrors.rgpd = 'Veuillez accepter les conditions de RGPD';
     }
 
     setErrors(newErrors);
@@ -265,6 +313,10 @@ export default function AuthScreen() {
 
     if (!captchaVerified) {
       newErrors.captcha = 'Veuillez compléter la vérification de sécurité';
+    }
+
+    if (!rgpdConsent) {
+      newErrors.rgpd = 'Veuillez accepter les conditions de RGPD';
     }
 
     setErrors(newErrors);
@@ -454,9 +506,10 @@ export default function AuthScreen() {
         };
         
         await saveUserData(userData);
-        if (completeSignUp.createdSessionId) {
-          await setActive({ session: completeSignUp.createdSessionId });
-        }
+        
+        // Set active session
+        await setActive!({ session: completeSignUp.createdSessionId! });
+        
         router.replace('/(tabs)');
       } else {
         console.log('Verification status:', completeSignUp.status);
@@ -510,6 +563,20 @@ export default function AuthScreen() {
     }
   };
 
+  const handleRgpdConsentToggle = () => {
+    setRgpdConsent(!rgpdConsent);
+  };
+
+  const toggleRgpdConsent = () => {
+    setRgpdConsent(!rgpdConsent);
+  };
+
+  // Style animé pour le formulaire
+  const animatedFormStyle = {
+    opacity: fadeAnim,
+    transform: [{ scale: scaleAnim }],
+  };
+
   if (pendingVerification) {
     return (
       <SafeAreaView style={styles.container}>
@@ -523,7 +590,7 @@ export default function AuthScreen() {
           >
             <View style={styles.content}>
               <View style={styles.header}>
-                <Ionicons name="mail-outline" size={64} color="#8B5CF6" style={{ marginBottom: 20 }} />
+                <Ionicons name="mail-outline" size={64} color="#1E40AF" style={{ marginBottom: 20 }} />
                 <Text style={styles.title}>Vérifiez votre email</Text>
                 <Text style={styles.subtitle}>
                   Entrez le code de vérification à 6 chiffres envoyé à {emailAddress}
@@ -549,7 +616,7 @@ export default function AuthScreen() {
                   disabled={loading}
                 >
                   <LinearGradient
-                    colors={['#8B5CF6', '#8B5CF6']}
+                    colors={['#1E40AF', '#3B82F6']}
                     style={styles.primaryButtonGradient}
                   >
                     <Text style={styles.primaryButtonText}>
@@ -588,7 +655,7 @@ export default function AuthScreen() {
     <View style={styles.container}>
       {/* Background Image */}
       <Image 
-        source={require('../../assets/images/cathedrale-rouen.png')}
+        source={require('../../assets/images/cathedrale-rouen.jpg')}
         style={styles.backgroundImage}
       />
       <View style={styles.overlay} />
@@ -628,7 +695,7 @@ export default function AuthScreen() {
                 <View style={styles.switchBackground}>
                   <TouchableOpacity
                     style={[styles.toggleButton, isLogin && styles.activeToggle]}
-                    onPress={() => setIsLogin(true)}
+                    onPress={() => switchMode(true)}
                   >
                     <Text style={[styles.toggleText, isLogin && styles.activeToggleText]}>
                       Connexion
@@ -636,7 +703,7 @@ export default function AuthScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.toggleButton, !isLogin && styles.activeToggle]}
-                    onPress={() => setIsLogin(false)}
+                    onPress={() => switchMode(false)}
                   >
                     <Text style={[styles.toggleText, !isLogin && styles.activeToggleText]}>
                       Inscription
@@ -646,11 +713,11 @@ export default function AuthScreen() {
               </View>
 
               {/* Form */}
-              <View style={styles.form}>
+              <Animated.View style={[styles.form, animatedFormStyle]}>
                 {/* First Name Input - Only for Register */}
                 {!isLogin && (
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color="#1E40AF" style={styles.inputIcon} />
                     <TextInput
                       ref={firstNameRef}
                       style={styles.input}
@@ -672,7 +739,7 @@ export default function AuthScreen() {
                 {/* Last Name Input - Only for Register */}
                 {!isLogin && (
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                    <Ionicons name="person-outline" size={20} color="#1E40AF" style={styles.inputIcon} />
                     <TextInput
                       ref={lastNameRef}
                       style={styles.input}
@@ -693,7 +760,7 @@ export default function AuthScreen() {
 
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Ionicons name="mail-outline" size={20} color="#1E40AF" style={styles.inputIcon} />
                   <TextInput
                     ref={emailRef}
                     style={styles.input}
@@ -715,7 +782,7 @@ export default function AuthScreen() {
 
                 {/* Password Input */}
                 <View style={styles.inputContainer}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Ionicons name="lock-closed-outline" size={20} color="#1E40AF" style={styles.inputIcon} />
                   <TextInput
                     ref={passwordRef}
                     style={[styles.input, styles.passwordInput]}
@@ -754,7 +821,7 @@ export default function AuthScreen() {
                 {!isLogin && (
                   <>
                     <View style={styles.inputContainer}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#1E40AF" style={styles.inputIcon} />
                       <TextInput
                         ref={confirmPasswordRef}
                         style={[styles.input, styles.passwordInput]}
@@ -786,30 +853,61 @@ export default function AuthScreen() {
 
                 {/* Remember Me - Only for Login */}
                 {isLogin && (
-                  <View style={styles.checkboxContainer}>
-                    <TouchableOpacity
-                      style={styles.checkbox}
-                      onPress={handleRememberMeToggle}
-                    >
-                      <Ionicons
-                        name={rememberMe ? "checkbox" : "square-outline"}
-                        size={20}
-                        color={rememberMe ? "#8B5CF6" : "#666"}
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.checkboxText}>Se souvenir de moi</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={[styles.checkboxFullContainer, { borderColor: rememberMe ? "#1E40AF" : "#666" }]}
+                    onPress={handleRememberMeToggle}
+                  >
+                    <View style={[styles.checkboxButton, { borderColor: rememberMe ? "#1E40AF" : "#666" }]}>
+                      {rememberMe && (
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color="#1E40AF"
+                        />
+                      )}
+                    </View>
+                    <Text style={[styles.checkboxText, styles.checkboxTextBold]}>Se souvenir de moi</Text>
+                  </TouchableOpacity>
                 )}
 
-                {/* Image Captcha - For both Login and Register */}
+                {/* RGPD Consent */}
+                <View style={styles.rgpdConsentRow}>
+                  <TouchableOpacity
+                    style={[styles.checkboxFullContainerFlex, { borderColor: rgpdConsent ? "#1E40AF" : "#666" }]}
+                    onPress={handleRgpdConsentToggle}
+                  >
+                    <View style={[styles.checkboxButton, { borderColor: rgpdConsent ? "#1E40AF" : "#666" }]}>
+                      {rgpdConsent && (
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color="#1E40AF"
+                        />
+                      )}
+                    </View>
+                    <Text style={[styles.checkboxText, styles.checkboxTextBold]}>J'accepte les conditions</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.viewConditionsButton}
+                    onPress={() => {
+                      setShowRgpdModal(true);
+                      setHasScrolledToEnd(false);
+                    }}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color="#1E40AF" />
+                    <Text style={styles.viewConditionsText}>Voir</Text>
+                  </TouchableOpacity>
+                </View>
+                {errors.rgpd && <Text style={styles.fieldErrorText}>{errors.rgpd}</Text>}
+
+                {/* Image CAPTCHA - For both Login and Register */}
                 <ImageCaptcha 
-                  onVerify={(verified) => {
-                    setCaptchaVerified(verified);
-                    if (verified && errors.captcha) {
+                  onVerify={(isValid) => {
+                    setCaptchaVerified(isValid);
+                    if (isValid && errors.captcha) {
                       setErrors(prev => ({ ...prev, captcha: '' }));
                     }
                   }}
-                  onRefresh={() => setCaptchaVerified(false)}
                 />
                 {errors.captcha && <Text style={styles.fieldErrorText}>{errors.captcha}</Text>}
 
@@ -826,9 +924,8 @@ export default function AuthScreen() {
                   onPress={isLogin ? onSignInPress : onSignUpPress}
                   disabled={loading}
                 >
-                  <LinearGradient
-                    colors={['#8B5CF6', '#8B5CF6']}
-                    style={styles.primaryButtonGradient}
+                  <View
+                    style={[styles.primaryButtonGradient, { backgroundColor: '#1E40AF' }]}
                   >
                     <Text style={styles.primaryButtonText}>
                       {loading 
@@ -836,7 +933,7 @@ export default function AuthScreen() {
                         : (isLogin ? 'Se connecter' : 'S\'inscrire')
                       }
                     </Text>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
 
                 {/* Forgot Password Link - Only for Login */}
@@ -878,10 +975,128 @@ export default function AuthScreen() {
                   </TouchableOpacity>
                 </View>
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* RGPD Modal */}
+        <Modal
+          visible={showRgpdModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowRgpdModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Conditions RGPD</Text>
+                <TouchableOpacity
+                  onPress={() => setShowRgpdModal(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={styles.modalContent}
+                onScroll={(event) => {
+                  const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+                  const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+                  if (isCloseToBottom && !hasScrolledToEnd) {
+                    setHasScrolledToEnd(true);
+                  }
+                }}
+                scrollEventThrottle={400}
+              >
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Protection des données personnelles</Text>
+                  <Text style={styles.modalSectionText}>
+                    Conformément au Règlement Général sur la Protection des Données (RGPD), nous nous engageons à protéger vos données personnelles. Les informations collectées sont utilisées uniquement dans le cadre du fonctionnement de l'application et ne sont jamais partagées avec des tiers sans votre consentement explicite.
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Données collectées</Text>
+                  <Text style={styles.modalSectionText}>
+                    • Nom et prénom{'\n'}
+                    • Adresse email{'\n'}
+                    • Photo de profil (optionnelle){'\n'}
+                    • Données de localisation (si autorisées){'\n'}
+                    • Historique d'activités dans l'application{'\n'}
+                    • Messages et interactions
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Utilisation des données</Text>
+                  <Text style={styles.modalSectionText}>
+                    Vos données sont utilisées pour :{'\n'}
+                    • Créer et gérer votre compte utilisateur{'\n'}
+                    • Personnaliser votre expérience{'\n'}
+                    • Vous permettre d'interagir avec d'autres utilisateurs{'\n'}
+                    • Améliorer nos services{'\n'}
+                    • Vous envoyer des notifications importantes
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Vos droits</Text>
+                  <Text style={styles.modalSectionText}>
+                    Vous disposez des droits suivants :{'\n'}
+                    • Droit d'accès à vos données{'\n'}
+                    • Droit de rectification{'\n'}
+                    • Droit à l'effacement{'\n'}
+                    • Droit à la portabilité{'\n'}
+                    • Droit d'opposition{'\n'}
+                    • Droit de limitation du traitement
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Sécurité</Text>
+                  <Text style={styles.modalSectionText}>
+                    Nous mettons en œuvre des mesures techniques et organisationnelles appropriées pour protéger vos données contre tout accès non autorisé, modification, divulgation ou destruction.
+                  </Text>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>Contact</Text>
+                  <Text style={styles.modalSectionText}>
+                    Pour toute question concernant vos données ou l'exercice de vos droits, vous pouvez nous contacter via la section "Nous contacter" de l'application.
+                  </Text>
+                </View>
+
+                <View style={styles.bottomSpacingModal} />
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                {hasScrolledToEnd ? (
+                  <TouchableOpacity
+                    style={[styles.modalAcceptButton, { backgroundColor: '#1E40AF' }]}
+                    onPress={() => {
+                      setRgpdConsent(true);
+                      setShowRgpdModal(false);
+                      setHasScrolledToEnd(false);
+                      if (errors.rgpd) {
+                        setErrors(prev => ({ ...prev, rgpd: '' }));
+                      }
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                    <Text style={styles.modalAcceptButtonText}>J'accepte les conditions</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.modalScrollHint}>
+                    <Ionicons name="arrow-down" size={20} color="#666" />
+                    <Text style={styles.modalScrollHintText}>Faites défiler jusqu'en bas pour accepter</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -969,7 +1184,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeToggle: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   toggleText: {
     color: 'rgba(255, 255, 255, 0.7)',
@@ -1001,7 +1216,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeTab: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
   },
   tabText: {
     fontSize: 16,
@@ -1060,7 +1275,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   fieldErrorText: {
-    color: '#8B5CF6',
+    color: '#DC2626',
     fontSize: 12,
     marginBottom: 16,
     marginLeft: 16,
@@ -1070,18 +1285,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  checkbox: {
+  checkboxFullContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#666',
+    borderRadius: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  checkboxFullContainerFlex: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#666',
+    borderRadius: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  checkboxButton: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#666',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
   },
   checkboxText: {
     fontSize: 14,
     color: '#FFFFFF',
   },
+  checkboxTextBold: {
+    fontWeight: 'bold',
+  },
   primaryButton: {
     borderRadius: 16,
     marginBottom: 16,
     marginTop: 12,
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1114,7 +1362,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: '#8B5CF6',
+    color: '#1E40AF',
     fontWeight: '600',
   },
   resendButton: {
@@ -1124,7 +1372,7 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     fontSize: 14,
-    color: '#8B5CF6',
+    color: '#1E40AF',
     fontWeight: '600',
   },
   backButton: {
@@ -1163,15 +1411,118 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorMessage: {
-    color: '#8B5CF6',
+    color: '#DC2626',
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
   },
   errorText: {
-    color: '#EF4444',
+    color: '#DC2626',
     fontSize: 12,
     marginTop: 4,
     marginLeft: 16,
+  },
+  rgpdConsentRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 8,
+    marginBottom: 16,
+  },
+  viewConditionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E40AF',
+    minWidth: 80,
+  },
+  viewConditionsText: {
+    color: '#1E40AF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: Dimensions.get('window').height * 0.85,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+  },
+  modalSection: {
+    marginTop: 20,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  modalSectionText: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  bottomSpacingModal: {
+    height: 20,
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  modalAcceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  modalAcceptButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalScrollHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  modalScrollHintText: {
+    color: '#666',
+    fontSize: 14,
   },
 });

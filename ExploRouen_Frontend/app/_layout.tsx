@@ -11,6 +11,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { ActivityProvider } from '@/contexts/ActivityProvider';
+import { MonumentsProvider } from '@/contexts/MonumentsContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 // Ta clé Clerk (depuis .env)
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
@@ -38,21 +41,6 @@ function InitialLayout() {
     const { isLoaded, isSignedIn } = useAuth();
     const segments = useSegments();
     const router = useRouter();
-
-    // Initialiser la base de données SQLite au démarrage
-    useEffect(() => {
-        const setupDatabase = async () => {
-            try {
-                // await initDatabase(); // Commenté temporairement
-                console.log('✅ SQLite database initialized successfully');
-            } catch (error) {
-                console.error('❌ Failed to initialize SQLite database:', error);
-                // En cas d'erreur, on peut afficher une alerte ou continuer sans SQLite
-            }
-        };
-
-        setupDatabase();
-    }, []);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -104,24 +92,30 @@ function InitialLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <ThemeProvider>
-                <ActivityProvider>
-                    <ChatProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="splash" />
-                        <Stack.Screen name="get-started" />
-                        <Stack.Screen name="(auth)" />
-                        <Stack.Screen name="(tabs)" />
-                        <Stack.Screen name="activity/[id]" />
-                        <Stack.Screen name="monument/[id]" />
-                        <Stack.Screen name="all-monuments" />
-                        <Stack.Screen name="create-activity" />
-                        <Stack.Screen name="create-monument" />
-                        <Stack.Screen name="contact" />
-                        <Stack.Screen name="notifications" />
-                        <Stack.Screen name="+not-found" />
-                    </Stack>
-                    </ChatProvider>
-                </ActivityProvider>
+                <ToastProvider>
+                    <NotificationProvider>
+                        <MonumentsProvider>
+                            <ActivityProvider>
+                                <ChatProvider>
+                                <Stack screenOptions={{ headerShown: false }}>
+                                <Stack.Screen name="splash" />
+                            <Stack.Screen name="get-started" />
+                            <Stack.Screen name="(auth)" />
+                            <Stack.Screen name="(tabs)" />
+                            <Stack.Screen name="activity/[id]" />
+                            <Stack.Screen name="monument/[id]" />
+                            <Stack.Screen name="all-monuments" />
+                            <Stack.Screen name="create-activity" />
+                            <Stack.Screen name="create-monument" />
+                            <Stack.Screen name="contact" />
+                            <Stack.Screen name="notifications" />
+                            <Stack.Screen name="404" options={{ title: 'Page non trouvée' }} />
+                            </Stack>
+                                </ChatProvider>
+                            </ActivityProvider>
+                        </MonumentsProvider>
+                    </NotificationProvider>
+                </ToastProvider>
             </ThemeProvider>
         </GestureHandlerRootView>
     );

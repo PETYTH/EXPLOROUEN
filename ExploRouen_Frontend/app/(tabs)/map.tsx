@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Linking, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAuth } from '@clerk/clerk-expo';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import ApiService, { BackendActivity, BackendPlace, BackendMonument } from '@/services/api';
+import { handleApiError } from '@/utils/errorHandler';
 
 interface MapViewProps {
   monuments?: Array<{
@@ -26,6 +27,34 @@ export default function MapView() {
   const [isLoading, setIsLoading] = useState(true);
   const [cachedLocation, setCachedLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [currentRoute, setCurrentRoute] = useState<any>(null);
+
+  // Fonction pour ouvrir l'application de navigation native
+  const openNativeNavigation = async (destination: {latitude: number, longitude: number, address?: string}, name: string) => {
+    const lat = destination.latitude;
+    const lng = destination.longitude;
+    const address = destination.address || name;
+    const label = encodeURIComponent(address);
+    
+    // Créer les URLs pour iOS et Android
+    const iosUrl = `maps://app?daddr=${lat},${lng}&q=${label}`;
+    const androidUrl = `google.navigation:q=${lat},${lng}`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    
+    try {
+      const url = Platform.OS === 'ios' ? iosUrl : androidUrl;
+      const supported = await Linking.canOpenURL(url);
+      
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        // Si l'app native n'est pas disponible, ouvrir dans le navigateur
+        await Linking.openURL(fallbackUrl);
+      }
+    } catch (error) {
+      console.error('Erreur ouverture navigation:', error);
+      Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application de navigation');
+    }
+  };
 
   // Fonction pour calculer l'itinéraire
   const calculateRoute = async (destination: {latitude: number, longitude: number}, destinationType: string, destinationId: string) => {
@@ -236,8 +265,8 @@ export default function MapView() {
       //   activities: activitiesData.length,
       //   places: placesData.length
       // });
-    } catch (error) {
-      console.error('❌ Erreur lors du chargement des données de la carte:', error);
+    } catch (error: any) {
+      handleApiError(error, 'Chargement carte');
     } finally {
       setIsLoading(false);
     }
@@ -253,7 +282,8 @@ export default function MapView() {
     category: monument.category,
     rating: 4.5, // Valeur par défaut
     price: 'Gratuit',
-    image: monument.images?.[0] || 'https://via.placeholder.com/300x200'
+    address: `${monument.name}, Rouen, France`,
+    image: monument.images?.[0] || 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=300&h=200&fit=crop'
   }));
 
   const mapActivities = activities.map((activity: BackendActivity) => ({
@@ -268,24 +298,12 @@ export default function MapView() {
     participants: `${activity.participantsCount}/${activity.maxParticipants}`,
     price: activity.price || 0,
     organizer: activity.organizerName || 'Organisateur',
-    image: activity.image || 'https://via.placeholder.com/300x200'
+    address: activity.meetingPoint || `${activity.title}, Rouen, France`,
+    image: activity.image || 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=300&h=200&fit=crop'
   }));
 
-  // Combiner monuments et lieux pour avoir plus de POI
-  const allMapMonuments = [
-    ...mapMonuments,
-    ...places.map((place: BackendPlace) => ({
-      id: place.id,
-      name: place.name,
-      latitude: place.latitude,
-      longitude: place.longitude,
-      description: place.description,
-      category: place.category,
-      rating: place.rating || 4.0,
-      price: 'Variable',
-      image: place.images?.[0] || 'https://via.placeholder.com/300x200'
-    }))
-  ];
+  // Ne pas inclure les places dans la carte, seulement monuments et activités
+  const allMapMonuments = mapMonuments;
 
   // Fonction pour obtenir les coordonnées des activités
   function getActivityCoordinates(location: string) {
@@ -315,7 +333,7 @@ export default function MapView() {
             width: 100%;
           }
           .monument-marker {
-            background: linear-gradient(135deg, #667EEA 0%, #764BA2 100%);
+            background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
             width: 32px;
             height: 32px;
             border-radius: 50% 50% 50% 0;
@@ -409,11 +427,11 @@ export default function MapView() {
             display: flex;
             align-items: center;
             gap: 4px;
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(30, 64, 175, 0.2);
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 12px;
-            color: #8B5CF6;
+            color: #1E40AF;
             font-weight: 600;
           }
           .activity-popup .popup-meta-item {
@@ -429,7 +447,7 @@ export default function MapView() {
             border-radius: 16px;
             border: none;
             background: rgba(40, 40, 40, 0.95);
-            color: #8B5CF6;
+            color: #1E40AF;
             font-size: 16px;
             cursor: pointer;
             display: flex;
@@ -439,11 +457,11 @@ export default function MapView() {
             backdrop-filter: blur(10px);
           }
           .popup-close:hover {
-            background: #8B5CF6;
+            background: #1E40AF;
             color: #FFFFFF;
-            border-color: #8B5CF6;
+            border-color: #1E40AF;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
           }
           .popup-actions {
             display: flex;
@@ -456,7 +474,7 @@ export default function MapView() {
             border-radius: 20px;
             border: none;
             background: rgba(40, 40, 40, 0.95);
-            color: #8B5CF6;
+            color: #1E40AF;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
@@ -469,11 +487,11 @@ export default function MapView() {
             backdrop-filter: blur(10px);
           }
           .popup-button:hover {
-            background: #8B5CF6;
+            background: #1E40AF;
             color: #FFFFFF;
-            border-color: #8B5CF6;
+            border-color: #1E40AF;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
           }
           .popup-button.secondary {
             background: rgba(40, 40, 40, 0.95);
@@ -580,7 +598,7 @@ export default function MapView() {
             height: 52px;
             background: rgba(255,255,255,0.95);
             border: none;
-            border-radius: 26px;
+            border-radius: 16px;
             padding: 0 20px 0 54px;
             font-size: 16px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
@@ -598,7 +616,7 @@ export default function MapView() {
             top: 50%;
             transform: translateY(-50%);
             font-size: 18px;
-            color: #8B5CF6;
+            color: #1E40AF;
             z-index: 10;
           }
           .location-button {
@@ -619,14 +637,14 @@ export default function MapView() {
             transition: all 0.2s;
             backdrop-filter: blur(10px);
             font-size: 20px;
-            color: #8B5CF6;
+            color: #1E40AF;
             transform: rotate(-90deg);
           }
           .location-button:hover {
-            background: #8B5CF6;
+            background: #1E40AF;
             color: #FFFFFF;
             transform: rotate(-90deg) translateY(-2px);
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+            box-shadow: 0 6px 20px rgba(30, 64, 175, 0.4);
           }
           .zoom-controls {
             position: absolute;
@@ -658,7 +676,7 @@ export default function MapView() {
             transition: all 0.2s;
           }
           .zoom-button:hover {
-            background: #8B5CF6;
+            background: #1E40AF;
             color: #FFFFFF;
           }
         </style>
@@ -669,7 +687,7 @@ export default function MapView() {
         
 
         <div class="search-container">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
           </svg>
@@ -763,7 +781,7 @@ export default function MapView() {
                   const coordinates = mainRoute.geometry.map(coord => [coord[1], coord[0]]);
                   
                   routeLayer = L.polyline(coordinates, {
-                    color: '#8B5CF6',
+                    color: '#1E40AF',
                     weight: 6,
                     opacity: 1,
                     lineJoin: 'round',
@@ -825,7 +843,7 @@ export default function MapView() {
                   if (routeData.destinationType === 'monument') {
                     popupContent += '<div class="popup-meta">';
                     if (destinationInfo.category) {
-                      popupContent += '<div class="popup-meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ' + destinationInfo.category + '</div>';
+                      popupContent += '<div class="popup-meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg> ' + destinationInfo.category + '</div>';
                     }
                     if (destinationInfo.rating) {
                       popupContent += '<div class="popup-meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ' + destinationInfo.rating + '</div>';
@@ -853,7 +871,7 @@ export default function MapView() {
                   
                   if (routeData.driving) {
                     popupContent += '<button class="popup-button transport-button">';
-                    popupContent += '<svg class="transport-icon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>';
+                    popupContent += '<svg class="transport-icon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>';
                     popupContent += '<span class="transport-time">' + routeData.driving.duration + '</span>';
                     popupContent += '<span class="transport-unit">min</span>';
                     popupContent += '</button>';
@@ -869,7 +887,7 @@ export default function MapView() {
                   
                   if (routeData.transit) {
                     popupContent += '<button class="popup-button transport-button secondary">';
-                    popupContent += '<svg class="transport-icon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>';
+                    popupContent += '<svg class="transport-icon" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S8.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>';
                     popupContent += '<span class="transport-time">' + routeData.transit.duration + '</span>';
                     popupContent += '<span class="transport-unit">min</span>';
                     popupContent += '</button>';
@@ -1014,12 +1032,12 @@ export default function MapView() {
                   </div>
                   <div class="popup-description">\${monument.description}</div>
                   <div class="popup-actions">
-                    <button class="popup-button" onclick="window.ReactNativeWebView?.postMessage(JSON.stringify({type: 'navigate', monumentId: '\${monument.id}'}))">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9,22 9,12 15,12 15,22"></polyline></svg>
+                    <button class="popup-button" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'navigate', monumentId: '\${monument.id}'})); return false;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9,22 9,12 15,12 15,22"></polyline></svg>
                       Détails
                     </button>
-                    <button class="popup-button secondary" onclick="window.ReactNativeWebView?.postMessage(JSON.stringify({type: 'directions', monumentId: '\${monument.id}'}))">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3,11 22,2 13,21 11,13 3,11"></polygon></svg>
+                    <button class="popup-button secondary" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'directions', monumentId: '\${monument.id}'})); return false;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3,11 22,2 13,21 11,13 3,11"></polygon></svg>
                       Itinéraire
                     </button>
                   </div>
@@ -1064,12 +1082,12 @@ export default function MapView() {
                     <div class="popup-meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg> \${activity.price}€</div>
                   </div>
                   <div class="popup-actions">
-                    <button class="popup-button" onclick="window.ReactNativeWebView?.postMessage(JSON.stringify({type: 'joinActivity', activityId: '\${activity.id}'}))">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+                    <button class="popup-button" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'joinActivity', activityId: '\${activity.id}'})); return false;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
                       Rejoindre
                     </button>
-                    <button class="popup-button secondary" onclick="window.ReactNativeWebView?.postMessage(JSON.stringify({type: 'directions', activityId: '\${activity.id}'}))">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3,11 22,2 13,21 11,13 3,11"></polygon></svg>
+                    <button class="popup-button secondary" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'directions', activityId: '\${activity.id}'})); return false;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3,11 22,2 13,21 11,13 3,11"></polygon></svg>
                       Itinéraire
                     </button>
                   </div>
@@ -1129,16 +1147,15 @@ export default function MapView() {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'navigate' && data.monumentId) {
         // Navigation vers le détail du monument
-        // console.log('Navigate to monument:', data.monumentId);
-        // router.push(`/monument/${data.monumentId}`);
+        router.push(`/monument/${data.monumentId}`);
       } else if (data.type === 'directions' && data.monumentId) {
-        // Calculer l'itinéraire vers un monument
-        const monument = monuments.find(m => m.id === data.monumentId);
+        // Ouvrir l'application de navigation native vers un monument
+        // Ouvrir l'application de navigation native vers un monument
+        const monument = mapMonuments.find(m => m.id === data.monumentId);
         if (monument) {
-          await calculateRoute(
-            { latitude: monument.latitude, longitude: monument.longitude },
-            'monument',
-            data.monumentId
+          await openNativeNavigation(
+            { latitude: monument.latitude, longitude: monument.longitude, address: monument.address },
+            monument.name
           );
         }
       } else if (data.type === 'joinActivity' && data.activityId) {
@@ -1146,13 +1163,12 @@ export default function MapView() {
         // console.log('Join activity:', data.activityId);
         router.push(`/activity/${data.activityId}`);
       } else if (data.type === 'directions' && data.activityId) {
-        // Calculer l'itinéraire vers une activité
-        const activity = activities.find(a => a.id === data.activityId);
+        // Ouvrir l'application de navigation native vers une activité
+        const activity = mapActivities.find(a => a.id === data.activityId);
         if (activity) {
-          await calculateRoute(
-            { latitude: activity.latitude, longitude: activity.longitude },
-            'activity',
-            data.activityId
+          await openNativeNavigation(
+            { latitude: activity.latitude, longitude: activity.longitude, address: activity.address },
+            activity.title
           );
         }
       } else if (data.type === 'requestLocation') {

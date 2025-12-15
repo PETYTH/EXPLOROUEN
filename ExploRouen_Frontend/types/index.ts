@@ -28,7 +28,7 @@ export interface Monument {
   image: string;
   rating: number;
   visitDuration: string;
-  category: 'religious' | 'historical' | 'cultural' | 'architectural';
+  category: 'HISTORIC' | 'RELIGIOUS' | 'OLD_HOUSE' | 'CIVIL' | 'MUSEUM' | 'MEMORIAL' | string;
   location: {
     latitude: number;
     longitude: number;

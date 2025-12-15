@@ -2,7 +2,7 @@ export interface Activity {
   id: string;
   title: string;
   description: string;
-  type: 'sport' | 'cultural' | 'easter-hunt';
+  type: 'sport' | 'cultural' | 'nature' | 'event' | 'leisure' | 'wellness' | 'easter-hunt';
   date: string;
   time: string;
   location: string;

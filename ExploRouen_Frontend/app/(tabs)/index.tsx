@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Image,
@@ -12,30 +11,33 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
-import { router } from 'expo-router';
-import { MapPin, Clock, Users, Calendar, MessageCircle, Plus, Sun, Moon, Bell, Search } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { MapPin, Clock, Users, Calendar, MessageCircle, Plus, Sun, Moon, Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useActivity } from '@/contexts/ActivityProvider';
+import { useMonuments } from '@/contexts/MonumentsContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import ApiService from '@/services/api';
 import { useRole } from '../../hooks/useRole';
 import StarRating from '@/components/StarRating';
 import CookieConsent from '@/components/CookieConsent';
 
 export default function HomeScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [topActivities, setTopActivities] = useState<any[]>([]);
-  const [monuments, setMonuments] = useState<any[]>([]);
   const [userStats, setUserStats] = useState<any | null>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const { user } = useUser();
   const { getToken } = useAuth();
   const { isDark, toggleTheme, colors } = useTheme();
+  const { monuments: allMonuments, loadMonuments } = useMonuments();
+  const { totalUnreadCount, systemNotificationCount } = useNotifications();
+  const monuments = allMonuments.slice(0, 5);
+  
+  // Calculer le nombre total de notifications (messages + système)
+  const totalUnread = totalUnreadCount + systemNotificationCount;
 
   const loadData = async () => {
     try {
@@ -50,9 +52,10 @@ export default function HomeScreen() {
         .slice(0, 3);
       setTopActivities(sortedActivities);
       
-      // Charger les monuments depuis l'API monuments
-      const monumentsData = await ApiService.getMonuments();
-      setMonuments(monumentsData.slice(0, 5));
+      // Charger les monuments depuis le contexte
+      if (allMonuments.length === 0) {
+        await loadMonuments();
+      }
       
       // Charger les stats utilisateur si connecté
       if (token) {
@@ -74,38 +77,8 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), loadMonuments()]);
     setRefreshing(false);
-  };
-
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    
-    if (query.trim().length < 2) {
-      setShowSearchResults(false);
-      setSearchResults([]);
-      return;
-    }
-    
-    try {
-      const token = await getToken();
-      const [activities, monuments] = await Promise.all([
-        ApiService.getActivities({ search: query }, token || undefined),
-        ApiService.getMonuments()
-      ]);
-      
-      // Filtrer les monuments par nom si recherche
-      const filteredMonuments = monuments.filter(m => 
-        m.name.toLowerCase().includes(query.toLowerCase()) ||
-        m.description.toLowerCase().includes(query.toLowerCase())
-      );
-      
-      const combined = [...activities.slice(0, 3), ...filteredMonuments.slice(0, 3)];
-      setSearchResults(combined);
-      setShowSearchResults(true);
-    } catch (error) {
-      console.error('Erreur de recherche:', error);
-    }
   };
 
   useEffect(() => {
@@ -114,16 +87,34 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Background Image */}
+        <Image 
+          source={require('../../assets/images/cathedrale-rouen.jpg')}
+          style={styles.backgroundImage}
+        />
+        
+        {/* Full Image Overlay */}
+        <View style={styles.fullOverlay} />
+        
+        {/* Bottom Shadow Overlay */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
+          style={styles.bottomShadow}
+        />
+        
         {/* Header fixe pendant le chargement */}
-        <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
           <View style={styles.headerTop}>
             <View style={styles.greeting}>
-              <Text style={[styles.greetingText, { color: colors.text }]}>Bonjour,</Text>
+              <Text style={styles.greetingText}>Bonjour,</Text>
               <Text style={[styles.userName, { color: colors.textSecondary }]}>{user?.fullName || user?.firstName || 'Explorateur'}</Text>
             </View>
             <View style={styles.headerButtons}>
-              <TouchableOpacity style={[styles.themeButton, { backgroundColor: '#8B5CF6' }]} onPress={toggleTheme}>
+              <TouchableOpacity 
+                style={[styles.themeButton, { backgroundColor: colors.buttonPrimary }]} 
+                onPress={toggleTheme}
+              >
                 {isDark ? (
                   <Sun size={20} color="#FFFFFF" strokeWidth={2} />
                 ) : (
@@ -131,47 +122,54 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.moreButton, { backgroundColor: '#8B5CF6' }]}
-                onPress={() => Alert.alert('Fonctionnalité bientôt disponible', 'Les notifications seront disponibles dans une prochaine mise à jour !')}
+                style={[styles.moreButton, { backgroundColor: colors.buttonPrimary }]}
+                onPress={() => router.push('/notifications')}
               >
                 <Bell size={24} color="#FFFFFF" strokeWidth={2} />
+                {totalUnread > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
-          
-          <View style={styles.searchWrapper}>
-            <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-              <Search size={20} color="#9CA3AF" strokeWidth={2} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Rechercher monuments, activités..."
-                placeholderTextColor="#9CA3AF"
-                editable={false}
-              />
-            </View>
-          </View>
-        </Animated.View>
+        </View>
 
         {/* Indicateur de chargement centré */}
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
+          <ActivityIndicator size="large" color={colors.buttonPrimary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>Chargement...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Background Image */}
+      <Image 
+        source={require('../../assets/images/cathedrale-rouen.jpg')}
+        style={styles.backgroundImage}
+      />
+      
+      {/* Full Image Overlay */}
+      <View style={styles.fullOverlay} />
+      
       {/* Header fixe */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: 'transparent' }]}>
         <View style={styles.headerTop}>
           <View style={styles.greeting}>
-            <Text style={[styles.greetingText, { color: colors.text }]}>Bonjour,</Text>
+            <Text style={styles.greetingText}>Bonjour,</Text>
             <Text style={[styles.userName, { color: colors.textSecondary }]}>{user?.fullName || user?.firstName || 'Explorateur'}</Text>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity style={[styles.themeButton, { backgroundColor: '#8B5CF6' }]} onPress={toggleTheme}>
+            <TouchableOpacity 
+              style={[styles.themeButton, { backgroundColor: colors.buttonPrimary }]} 
+              onPress={toggleTheme}
+            >
               {isDark ? (
                 <Sun size={20} color="#FFFFFF" strokeWidth={2} />
               ) : (
@@ -179,53 +177,21 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.moreButton, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => Alert.alert('Fonctionnalité bientôt disponible', 'Les notifications seront disponibles dans une prochaine mise à jour !')}
+              style={[styles.moreButton, { backgroundColor: colors.buttonPrimary }]}
+              onPress={() => router.push('/notifications')}
             >
               <Bell size={24} color="#FFFFFF" strokeWidth={2} />
+              {totalUnread > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {totalUnread > 99 ? '99+' : totalUnread}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
-        
-        <View style={styles.searchWrapper}>
-          <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-            <Search size={20} color="#9CA3AF" strokeWidth={2} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Rechercher monuments, activités..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-          </View>
-          
-          {showSearchResults && searchResults.length > 0 && (
-            <View style={[styles.searchResults, { backgroundColor: colors.surface }]}>
-              {searchResults.map((item, index) => {
-                const isActivity = 'duration' in item;
-                return (
-                  <TouchableOpacity
-                    key={`${isActivity ? 'activity' : 'monument'}-${item.id}`}
-                    style={styles.searchResultItem}
-                    onPress={() => {
-                      setShowSearchResults(false);
-                      setSearchQuery('');
-                      router.push(isActivity ? `/activity/${item.id}` : `/monument/${item.id}`);
-                    }}
-                  >
-                    <Text style={[styles.searchResultTitle, { color: colors.text }]}>
-                      {isActivity ? (item as any).title : item.name}
-                    </Text>
-                    <Text style={[styles.searchResultType, { color: colors.textSecondary }]}>
-                      {isActivity ? 'Activité' : 'Monument'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      </Animated.View>
+      </View>
 
       {/* Contenu scrollable */}
       <ScrollView
@@ -233,10 +199,16 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        bouncesZoom={false}
+        scrollEventThrottle={16}
+        overScrollMode="always"
+        nestedScrollEnabled={true}
       >
         <View style={styles.content}>
           {/* Votre progression */}
-          <Animated.View entering={FadeInDown.delay(200)} style={styles.progressSection}>
+          <View style={styles.progressSection}>
             <View style={[styles.progressCard, { backgroundColor: colors.surface }]}>
               <View style={styles.progressContent}>
                 <View>
@@ -248,7 +220,14 @@ export default function HomeScreen() {
                   <View style={styles.progressStat}>
                     <View style={[
                       styles.progressNumberContainer,
-                      (userStats?.monumentsVisited || 0) > 0 && styles.progressNumberContainerActive
+                      (userStats?.monumentsVisited || 0) > 0 && {
+                        backgroundColor: colors.buttonPrimary,
+                        shadowColor: colors.buttonPrimary,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        elevation: 6,
+                      }
                     ]}>
                       <Text style={[
                         styles.progressNumber,
@@ -265,7 +244,14 @@ export default function HomeScreen() {
                   <View style={styles.progressStat}>
                     <View style={[
                       styles.progressNumberContainer,
-                      (userStats?.easterEggs || 0) > 0 && styles.progressNumberContainerActive
+                      (userStats?.easterEggs || 0) > 0 && {
+                        backgroundColor: colors.buttonPrimary,
+                        shadowColor: colors.buttonPrimary,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        elevation: 6,
+                      }
                     ]}>
                       <Text style={[
                         styles.progressNumber,
@@ -282,7 +268,14 @@ export default function HomeScreen() {
                   <View style={styles.progressStat}>
                     <View style={[
                       styles.progressNumberContainer,
-                      (userStats?.totalActivities || 0) > 0 && styles.progressNumberContainerActive
+                      (userStats?.totalActivities || 0) > 0 && {
+                        backgroundColor: colors.buttonPrimary,
+                        shadowColor: colors.buttonPrimary,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        elevation: 6,
+                      }
                     ]}>
                       <Text style={[
                         styles.progressNumber,
@@ -293,38 +286,43 @@ export default function HomeScreen() {
                     </View>
                     <Text style={[
                       styles.progressLabel,
-                      (userStats?.totalActivities || 0) > 0 ? styles.progressLabelActive : { color: colors.textSecondary }
+                      { color: '#1E40AF' }
                     ]}>Activités</Text>
                   </View>
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
           {/* Monuments populaires */}
-          <Animated.View entering={FadeInRight.delay(300)} style={styles.monumentsSection}>
+          <View style={styles.monumentsSection}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Monuments à découvrir</Text>
+              <Text style={styles.sectionTitle}>Monuments à découvrir</Text>
               <TouchableOpacity onPress={() => router.push('/all-monuments')}>
-                <Text style={[styles.viewAllText, { color: '#8B5CF6' }]}>Voir tout</Text>
+                <Text style={[styles.viewAllText, { color: '#FFFFFF' }]}>Voir tout</Text>
               </TouchableOpacity>
             </View>
             
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monumentsScroll}>
               {monuments.map((monument, index) => (
-                <Animated.View 
+                <View 
                   key={monument.id}
-                  entering={FadeInRight.delay(400 + index * 100)}
                 >
                   <TouchableOpacity 
                     style={styles.monumentCard}
                     onPress={() => {
                       console.log('Monument cliqué:', monument.id, monument.name);
-                      router.push(`/monument/${monument.id}`);
+                      if (monument.id) {
+                        router.push(`/monument/${encodeURIComponent(monument.id)}`);
+                      } else {
+                        console.error('Monument ID manquant:', monument);
+                      }
                     }}
                   >
                     <Image 
-                      source={{ uri: monument.images?.[0] || monument.image || 'https://via.placeholder.com/220x140' }} 
+                      source={{ 
+                        uri: monument.images?.[0] || 'https://via.placeholder.com/220x140' 
+                      }} 
                       style={styles.monumentImage} 
                     />
                     <LinearGradient
@@ -335,25 +333,20 @@ export default function HomeScreen() {
                         <Text style={styles.monumentTitle} numberOfLines={2}>
                           {monument.name}
                         </Text>
-                        <StarRating 
-                          rating={monument.rating || 4.5}
-                          size="small"
-                          showText={true}
-                        />
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
-                </Animated.View>
+                </View>
               ))}
             </ScrollView>
-          </Animated.View>
+          </View>
 
           {/* Activités les mieux notées */}
-          <Animated.View entering={FadeInDown.delay(600)} style={styles.activitiesSection}>
+          <View style={styles.activitiesSection}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Activités les mieux notées</Text>
+              <Text style={[styles.sectionTitle, { color: '#FFFFFF' }]}>Activités les mieux notées</Text>
               <TouchableOpacity onPress={() => router.push('/activities')}>
-                <Text style={[styles.viewAllText, { color: '#8B5CF6' }]}>Voir tout</Text>
+                <Text style={[styles.viewAllText, { color: '#FFFFFF' }]}>Voir tout</Text>
               </TouchableOpacity>
             </View>
             
@@ -367,9 +360,8 @@ export default function HomeScreen() {
                 };
                 
                 return (
-                  <Animated.View 
+                  <View 
                     key={activity.id}
-                    entering={FadeInDown.delay(700 + index * 100)}
                   >
                     <TouchableOpacity
                       style={[styles.activityCard, { backgroundColor: colors.surface }]}
@@ -380,7 +372,7 @@ export default function HomeScreen() {
                         style={styles.activityImage} 
                       />
                       <View style={styles.activityContent}>
-                        <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={2}>
+                        <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={1}>
                           {activity.title}
                         </Text>
                         <Text style={[styles.activityDescription, { color: colors.textSecondary }]} numberOfLines={2}>
@@ -389,14 +381,14 @@ export default function HomeScreen() {
                         
                         <View style={styles.activityMeta}>
                           <View style={styles.activityMetaItem}>
-                            <Clock size={12} color="#8B5CF6" strokeWidth={2} />
-                            <Text style={[styles.activityMetaText, { color: '#8B5CF6' }]}>
+                            <Clock size={12} color="#F59E0B" strokeWidth={2} />
+                            <Text style={[styles.activityMetaText, { color: '#F59E0B' }]}>
                               {formatDuration(activity.duration)}
                             </Text>
                           </View>
                           <View style={styles.activityMetaItem}>
-                            <Users size={12} color="#8B5CF6" strokeWidth={2} />
-                            <Text style={[styles.activityMetaText, { color: '#8B5CF6' }]}>
+                            <Users size={12} color="#DC2626" strokeWidth={2} />
+                            <Text style={[styles.activityMetaText, { color: '#DC2626' }]}>
                               {activity.participantsCount || 0}/{activity.maxParticipants}
                             </Text>
                           </View>
@@ -408,19 +400,32 @@ export default function HomeScreen() {
                         </View>
                       </View>
                     </TouchableOpacity>
-                  </Animated.View>
+                  </View>
                 );
               })}
             </View>
-          </Animated.View>
+          </View>
 
           <View style={styles.bottomSpacing} />
         </View>
       </ScrollView>
       
+      {/* Gradient Overlay at Bottom */}
+      <LinearGradient
+        colors={['transparent', isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(250, 250, 250, 0.95)']}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 120,
+          pointerEvents: 'none'
+        }}
+      />
+      
       {/* Cookie Consent Modal */}
       <CookieConsent />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -428,9 +433,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  fullOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  bottomShadow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 20,
   },
   headerTop: {
@@ -446,6 +476,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     marginBottom: 4,
+    color: '#FFFFFF',
   },
   userName: {
     fontSize: 16,
@@ -461,7 +492,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -473,11 +504,31 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1A1A1A',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -543,7 +594,7 @@ const styles = StyleSheet.create({
   },
   progressLabelActive: {
     fontSize: 11,
-    color: '#8B5CF6',
+    color: '#6366F1',
     fontWeight: '500',
     textAlign: 'center',
     maxWidth: 80,
@@ -560,6 +611,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
   viewAllText: {
     fontSize: 14,
@@ -616,19 +668,18 @@ const styles = StyleSheet.create({
   },
   activityCard: {
     borderRadius: 16,
-    padding: 20,
     flexDirection: 'row',
-    gap: 16,
+    overflow: 'hidden',
   },
   activityImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 12,
+    width: 120,
+    height: '100%',
     resizeMode: 'cover',
   },
   activityContent: {
     flex: 1,
     gap: 6,
+    padding: 16,
   },
   activityTitle: {
     fontSize: 16,
@@ -655,7 +706,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomSpacing: {
-    height: 100,
+    height: 140,
   },
   loadingContainer: {
     flex: 1,
@@ -711,8 +762,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressNumberContainerActive: {
-    backgroundColor: '#8B5CF6',
-    shadowColor: '#8B5CF6',
+    backgroundColor: '#6366F1',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

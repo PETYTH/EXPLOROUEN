@@ -10,16 +10,13 @@ export class ActivityAdapter {
    */
   static backendToFrontend(backendActivity: BackendActivity): Activity {
     // Mapping des types backend vers frontend
-    const typeMapping: Record<string, 'sport' | 'cultural' | 'easter-hunt'> = {
-      'RUNNING': 'sport',
-      'WALKING': 'sport',
-      'CYCLING': 'sport',
-      'HIKING': 'sport',
-      'KAYAK': 'sport',
-      'CLIMBING': 'sport',
-      'CULTURAL_VISIT': 'cultural',
-      'PHOTOGRAPHY': 'cultural',
-      'TREASURE_HUNT': 'easter-hunt'
+    const typeMapping: Record<string, 'sport' | 'cultural' | 'nature' | 'event' | 'leisure' | 'wellness' | 'easter-hunt'> = {
+      'SPORT': 'sport',
+      'CULTURAL': 'cultural',
+      'NATURE': 'nature',
+      'LEISURE': 'leisure',
+      'WELLNESS': 'wellness',
+      'EVENT': 'event'
     };
 
     // Mapping des difficultés backend vers frontend

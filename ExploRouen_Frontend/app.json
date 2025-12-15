@@ -17,33 +17,47 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Cette application utilise votre position pour vous montrer les monuments et activités à proximité.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Cette application utilise votre position pour vous montrer les monuments et activités à proximité."
-      }
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Cette application utilise votre position pour vous montrer les monuments et activités à proximité.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.princeb242.explorouen"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/icon-logo.png",
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ]
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.princeb242.explorouen"
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon-logo.png"
     },
     "plugins": [
-      "expo-router", 
-      "expo-font", 
+      "expo-router",
+      "expo-font",
       "expo-web-browser",
       "expo-location",
-      "expo-camera"
+      "expo-camera",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a3b13033-ece1-47ff-b25b-51aaddc878ab"
+      }
     }
   }
 }

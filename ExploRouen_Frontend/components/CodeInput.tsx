@@ -146,11 +146,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   inputError: {
-    borderColor: '#8B5CF6',
+    borderColor: '#1E40AF',
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
   },
   errorText: {
-    color: '#8B5CF6',
+    color: '#1E40AF',
     fontSize: 12,
     marginTop: 8,
     marginLeft: 4,

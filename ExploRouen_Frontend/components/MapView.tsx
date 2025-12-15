@@ -34,7 +34,7 @@ export default function MapView({ monuments = [] }: MapViewProps) {
               width: 100%;
             }
             .custom-marker {
-              background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+              background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
               width: 32px;
               height: 32px;
               border-radius: 50% 50% 50% 0;
@@ -62,7 +62,7 @@ export default function MapView({ monuments = [] }: MapViewProps) {
               min-width: 250px;
             }
             .popup-header {
-              background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+              background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
               color: white;
               padding: 12px 16px;
               font-weight: 600;
@@ -83,7 +83,7 @@ export default function MapView({ monuments = [] }: MapViewProps) {
               gap: 8px;
             }
             .popup-button {
-              background: #8B5CF6;
+              background: #1E40AF;
               color: white;
               border: none;
               padding: 8px 16px;
@@ -94,7 +94,7 @@ export default function MapView({ monuments = [] }: MapViewProps) {
               transition: all 0.2s;
             }
             .popup-button:hover {
-              background: #7C3AED;
+              background: #1E40AF;
               transform: translateY(-1px);
             }
             .popup-button.secondary {
@@ -182,7 +182,7 @@ export default function MapView({ monuments = [] }: MapViewProps) {
             .stat-number {
               font-weight: 800;
               font-size: 18px;
-              color: #8B5CF6;
+              color: #1E40AF;
             }
             .stat-label {
               font-size: 12px;

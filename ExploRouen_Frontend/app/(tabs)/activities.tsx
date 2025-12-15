@@ -12,11 +12,10 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Heart, MapPin, Clock, Users, Filter, Search, Star, Calendar, MessageCircle, Plus, X, CalendarDays } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import ActivityAdapter from '@/services/activityAdapter';
 import { Activity } from '@/data/activities';
@@ -40,12 +39,31 @@ export default function ActivitiesScreen() {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showCustomPeriod, setShowCustomPeriod] = useState(false);
-  
-  const { colors } = useTheme();
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+    // Log silencieux sans interrompre l'app
+    console.warn('Image de fond non trouvée, utilisation de l\'image par défaut');
+  };
+
+  const getBackgroundImage = () => {
+    if (imageError) {
+      // Image de fallback si erreur
+      return require('../../assets/images/cathedrale-rouen.jpg');
+    }
+    try {
+      return require('../../assets/images/cathedrale-rouen.jpg');
+    } catch {
+      return require('../../assets/images/Donjon.jpg');
+    }
+  };
+
+  const { colors, isDark } = useTheme();
   const { activities, isLoading: isLoadingActivities, error, refreshActivities } = useActivity();
   const { getToken } = useAuth();
   const { user } = useUser();
-  const { isAdmin } = useRole();
+  const { isAdmin, isStaff } = useRole();
   const { leaveChatRoom } = useChat();
   
   // Calculer les statistiques dynamiques
@@ -85,23 +103,26 @@ export default function ActivitiesScreen() {
   };
 
   const activityTypes = [
-    { id: 'all', label: 'Tous', color: '#8B5CF6' },
-    { id: 'sport', label: 'Sport', color: '#10B981' },
-    { id: 'cultural', label: 'Culture', color: '#F59E0B' },
-    { id: 'easter-hunt', label: 'Chasse aux œufs', color: '#EC4899' },
+    { id: 'all', label: 'Toutes', color: '#1E40AF' },
+    { id: 'sport', label: 'Sportive', color: '#10B981' },
+    { id: 'cultural', label: 'Culturelle', color: '#F59E0B' },
+    { id: 'nature', label: 'Nature', color: '#22C55E' },
+    { id: 'event', label: 'Événementielle', color: '#8B5CF6' },
+    { id: 'leisure', label: 'Loisir', color: '#3B82F6' },
+    { id: 'wellness', label: 'Bien-être', color: '#EC4899' },
   ];
 
   // Fonction pour obtenir la couleur selon le type d'activité
   const getActivityTypeColor = (type: string) => {
     switch (type) {
-      case 'sport':
-        return '#10B981'; // Vert
-      case 'cultural':
-        return '#F59E0B'; // Jaune
-      case 'easter-hunt':
-        return '#EC4899'; // Rose
-      default:
-        return '#8B5CF6';
+      case 'sport': return '#10B981';
+      case 'cultural': return '#F59E0B';
+      case 'nature': return '#22C55E';
+      case 'event': return '#8B5CF6';
+      case 'leisure': return '#3B82F6';
+      case 'wellness': return '#EC4899';
+      case 'easter-hunt': return '#EC4899';
+      default: return '#1E40AF';
     }
   };
 
@@ -109,17 +130,17 @@ export default function ActivitiesScreen() {
   const getCategoryColor = (category: string) => {
     switch (category.toLowerCase()) {
       case 'running':
-        return '#10B981'; // Vert sport
+        return '#DC2626'; // Rouge toits
       case 'culture':
-        return '#F59E0B'; // Orange culture
+        return '#3B82F6'; // Bleu Seine clair
       case 'jeu':
-        return '#EC4899'; // Rose chasse aux œufs
+        return '#F59E0B'; // Doré
       case 'bien-être':
-        return '#10B981'; // Vert sport
+        return '#3B82F6'; // Bleu Seine clair
       case 'sport':
-        return '#10B981'; // Vert sport
+        return '#DC2626'; // Rouge toits
       default:
-        return '#667EEA'; // Bleu toutes
+        return '#1E40AF'; // Bleu Seine principal
     }
   };
 
@@ -129,16 +150,24 @@ export default function ActivitiesScreen() {
       return 'Toutes les activités';
     }
     switch (selectedType) {
-      case 'sport':
-        return 'Activités sportives';
-      case 'cultural':
-        return 'Activités culturelles';
-      case 'easter-hunt':
-        return 'Chasses aux œufs';
-      default:
-        return 'Toutes les activités';
+      case 'sport': return 'Activités sportives';
+      case 'cultural': return 'Activités culturelles';
+      case 'nature': return 'Activités nature';
+      case 'event': return 'Activités événementielles';
+      case 'leisure': return 'Activités de loisir';
+      case 'wellness': return 'Activités bien-être';
+      case 'easter-hunt': return 'Chasses aux œufs';
+      default: return 'Toutes les activités';
     }
   };
+
+  // Rafraîchir automatiquement les activités quand on revient sur la page
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📱 Page Activités focalisée - Rafraîchissement automatique');
+      refreshActivities();
+    }, [])
+  );
 
   // Convertir les activités backend en format frontend
   useEffect(() => {
@@ -218,6 +247,14 @@ export default function ActivitiesScreen() {
   };
 
   const filteredActivities = frontendActivities.filter((activity: Activity) => {
+    // Filtrer les activités passées
+    const activityDate = new Date(activity.date);
+    const now = new Date();
+    const isPast = activityDate < now;
+    
+    // Ne pas afficher les activités passées
+    if (isPast) return false;
+    
     const matchesSearch = activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          activity.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = !selectedType || selectedType === 'all' || activity.type === selectedType;
@@ -225,7 +262,6 @@ export default function ActivitiesScreen() {
     // Filtrage par période
     let matchesPeriod = true;
     if (selectedPeriod !== 'all') {
-      const activityDate = new Date(activity.date);
       const today = new Date();
       
       switch (selectedPeriod) {
@@ -272,248 +308,325 @@ export default function ActivitiesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
-        <View style={styles.headerTop}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Activités</Text>
-          {isAdmin && (
-            <TouchableOpacity 
-              style={[styles.modernCreateButton, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => router.push('/create-activity')}
-            >
-              <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-          <Search size={18} color={colors.textSecondary} strokeWidth={2} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Rechercher une activité..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={colors.textSecondary}
-          />
-          <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => setShowFilterModal(true)}
-          >
-            <Filter size={18} color={colors.textSecondary} strokeWidth={2} />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
-      {/* Categories */}
-      <Animated.View entering={FadeInDown.delay(200)} style={styles.categoriesSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-          {activityTypes.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.categoryButton,
-                { backgroundColor: colors.surface },
-                selectedType === type.id && { backgroundColor: type.color }
-              ]}
-              onPress={() => setSelectedType(selectedType === type.id ? null : type.id)}
-            >
-              <Text style={[
-                styles.categoryText,
-                { color: colors.textSecondary },
-                selectedType === type.id && { color: '#FFFFFF' }
-              ]}>
-                {type.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Animated.View>
-
-      {/* Quick Stats */}
-      <Animated.View entering={FadeInDown.delay(300)} style={styles.statsSection}>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <Calendar size={20} color="#667EEA" strokeWidth={2} />
-            <Text style={[styles.statNumber, { color: colors.text }]}>
-              {userStats.todayActivities}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Aujourd'hui</Text>
-          </View>
-          
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <Users size={20} color="#10B981" strokeWidth={2} />
-            <Text style={[styles.statNumber, { color: colors.text }]}>
-              {userStats.totalParticipants}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Participants</Text>
-          </View>
-          
-          <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-            <Star size={20} color="#F59E0B" strokeWidth={2} />
-            <Text style={[styles.statNumber, { color: colors.text }]}>
-              {userStats.averageRating.toFixed(1)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Note moy.</Text>
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* Activities List */}
-      <ScrollView 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <View style={styles.activitiesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{getSectionTitle()}</Text>
-            </View>
-          
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-                {error}
-              </Text>
+    <View style={styles.container}>
+      {/* Image de fond plein écran */}
+      <Image 
+        source={getBackgroundImage()}
+        onError={handleImageError}
+        style={styles.backgroundImage}
+      />
+      
+      {/* Dark Overlay comme sur la page d'accueil */}
+      <View style={styles.darkOverlay} />
+      
+      <View style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+          <View style={styles.headerTop}>
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Activités</Text>
+            {isStaff && (
               <TouchableOpacity 
-                style={styles.retryButton}
-                onPress={refreshActivities}
+                style={styles.modernCreateButton}
+                onPress={() => router.push('/create-activity')}
               >
-                <Text style={styles.retryButtonText}>Réessayer</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {isLoadingActivities && (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#8B5CF6" />
-                  <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                    Chargement des activités...
-                  </Text>
-                </View>
-              )}
-              
-              {!isLoadingActivities && filteredActivities.length === 0 ? (
-                <View style={styles.noResultsContainer}>
-                  <Text style={[styles.noResultsTitle, { color: colors.text }]}>Aucun résultat</Text>
-                  <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
-                    Aucune activité ne correspond à vos critères de recherche.
-                  </Text>
-                  {selectedPeriod !== 'all' && (
-                    <TouchableOpacity 
-                      style={[styles.resetFilterButton, { backgroundColor: '#8B5CF6' }]}
-                      onPress={() => {
-                        setSelectedPeriod('all');
-                        setStartDate(null);
-                        setEndDate(null);
-                      }}
-                    >
-                      <Text style={styles.resetFilterText}>Voir toutes les périodes</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : !isLoadingActivities && (
-                <View style={styles.activitiesList}>
-                  {filteredActivities.map((activity: Activity, index: number) => (
-                <Animated.View 
-                  key={activity.id}
-                  entering={FadeInDown.delay(400 + index * 100)}
+                <LinearGradient
+                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                  style={styles.modernCreateButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                 >
-                  <TouchableOpacity
-                    style={[styles.activityCard, styles.enhancedActivityCard, { backgroundColor: colors.surface }]}
-                    onPress={() => router.push(`/activity/${activity.id}`)}
-                  >
-                  <View style={styles.imageContainer}>
-                    <Image source={{ uri: activity.image }} style={styles.activityImage} />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.3)']}
-                      style={styles.imageOverlay}
-                    >
-                      <View style={[styles.statusBadge, styles.statusBadgeRight, { 
-                        backgroundColor: getActivityTypeColor(activity.type)
-                      }]}>
-                        <Text style={styles.statusText}>
-                          {activity.status === 'active' ? 'En cours' : 
-                           activity.status === 'upcoming' ? 'Bientôt' : 'Terminé'}
-                        </Text>
-                      </View>
-                    </LinearGradient>
-                  </View>
-                  <View style={styles.activityContent}>
-                    <View style={styles.activityHeader}>
-                      <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={2}>
-                        {activity.title}
-                      </Text>
-                    </View>
-                    
-                    <Text style={[styles.activityDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                      {activity.description}
-                    </Text>
-                    
-                    <View style={styles.activityMeta}>
-                      <View style={styles.activityMetaItem}>
-                        <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>{activity.date}</Text>
-                      </View>
-                      <View style={styles.activityMetaItem}>
-                        <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>{activity.duration}</Text>
-                      </View>
-                      <View style={styles.activityMetaItem}>
-                        <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>
-                          {activity.currentParticipants}/{activity.maxParticipants} participants
-                        </Text>
-                      </View>
-                    </View>
+                  <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
 
-                    <View style={styles.activityFooter}>
-                      <View style={styles.organizerInfo}>
-                        <Image source={{ uri: activity.organizer.avatar }} style={styles.organizerAvatar} />
-                        <Text style={[styles.organizerName, { color: colors.text }]}>{activity.organizer.name}</Text>
-                        <Text style={[styles.priceText, { color: colors.primary }]}>
-                          {activity.price === 0 ? 'Gratuit' : `${activity.price}€`}
+          {/* Search Bar */}
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
+            <Search size={18} color={isDark ? '#FFFFFF' : '#000000'} strokeWidth={2} />
+            <TextInput
+              style={[styles.searchInput, { color: isDark ? '#FFFFFF' : '#000000' }]}
+              placeholder="Rechercher une activité..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'}
+            />
+            <TouchableOpacity 
+              style={styles.filterButton}
+              onPress={() => setShowFilterModal(true)}
+            >
+              <Filter size={18} color={isDark ? '#FFFFFF' : '#000000'} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Categories */}
+        <View style={styles.categoriesSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+            {activityTypes.map((type) => (
+              <TouchableOpacity
+                key={type.id}
+                style={[
+                  styles.categoryButton,
+                  { backgroundColor: colors.surface },
+                  selectedType === type.id && { backgroundColor: type.color }
+                ]}
+                onPress={() => {
+                  if (type.id === 'all') {
+                    setSelectedType('all');
+                    setSelectedPeriod('all');
+                    setStartDate(null);
+                    setEndDate(null);
+                  } else {
+                    setSelectedType(selectedType === type.id ? 'all' : type.id);
+                  }
+                }}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  { color: colors.text },
+                  selectedType === type.id && { color: '#FFFFFF', fontWeight: '700' }
+                ]}>
+                  {type.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsSection}>
+          <Text style={[styles.sectionTitle, { color: '#FFFFFF', marginBottom: 12 }]}>{getSectionTitle()}</Text>
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
+              <Calendar size={20} color="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.statNumber, { color: colors.text }]}>
+                {userStats.todayActivities}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Aujourd'hui</Text>
+            </View>
+            
+            <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
+              <Users size={20} color="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.statNumber, { color: colors.text }]}>
+                {userStats.totalParticipants}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Participants</Text>
+            </View>
+            
+            <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
+              <Star size={20} color="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.statNumber, { color: colors.text }]}>
+                {userStats.averageRating.toFixed(1)}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Note moy.</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Activities List */}
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.activitiesSection}>
+            
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={[styles.errorText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+                  {error}
+                </Text>
+                <TouchableOpacity 
+                  style={styles.retryButton}
+                  onPress={refreshActivities}
+                >
+                  <Text style={styles.retryButtonText}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {isLoadingActivities && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#1E40AF" />
+                    <Text style={[styles.loadingText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+                      Chargement des activités...
+                    </Text>
+                  </View>
+                )}
+                
+                {!isLoadingActivities && filteredActivities.length === 0 ? (
+                  <View style={styles.noResultsContainer}>
+                    <Text style={[styles.noResultsTitle, { color: '#FFFFFF' }]}>Aucun résultat</Text>
+                    <Text style={[styles.noResultsText, { color: 'rgba(255, 255, 255, 0.8)' }]}>
+                      Aucune activité ne correspond à vos critères de recherche.
+                    </Text>
+                    {selectedPeriod !== 'all' && (
+                      <TouchableOpacity 
+                        style={styles.resetFilterButton}
+                        onPress={() => {
+                          setSelectedPeriod('all');
+                          setStartDate(null);
+                          setEndDate(null);
+                        }}
+                      >
+                        <LinearGradient
+                          colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                          style={styles.resetFilterButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Text style={styles.resetFilterText}>Voir toutes les périodes</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : !isLoadingActivities && (
+                  <View style={styles.activitiesList}>
+                    {filteredActivities.map((activity: Activity, index: number) => (
+                  <View 
+                    key={activity.id}
+                    style={{
+                      marginBottom: 16
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={[styles.activityCard, styles.enhancedActivityCard, { backgroundColor: colors.surface }]}
+                      onPress={() => router.push(`/activity/${activity.id}`)}
+                    >
+                    <View style={styles.imageContainer}>
+                      <Image source={{ uri: activity.image }} style={styles.activityImage} />
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.3)']}
+                        style={styles.imageOverlay}
+                      >
+                        {(() => {
+                          const activityDate = new Date(activity.date);
+                          const now = new Date();
+                          const isPast = activityDate < now;
+                          
+                          return (
+                            <View style={[styles.statusBadge, styles.statusBadgeRight, { 
+                              backgroundColor: isPast ? '#EF4444' : getActivityTypeColor(activity.type)
+                            }]}>
+                              <Text style={styles.statusText}>
+                                {isPast ? 'Terminé' : (activity.status === 'active' ? 'En cours' : 
+                                 activity.status === 'upcoming' ? 'Bientôt' : 'Terminé')}
+                              </Text>
+                            </View>
+                          );
+                        })()}
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.activityContent}>
+                      <View style={styles.activityHeader}>
+                        <Text style={[styles.activityTitle, { color: colors.text }]} numberOfLines={2}>
+                          {activity.title}
                         </Text>
                       </View>
-                      <View style={styles.activityActions}>
-                        {registrationStatuses[activity.id]?.isRegistered ? (
-                          <View style={styles.registeredActions}>
-                            <TouchableOpacity
-                              style={[styles.chatButton, { backgroundColor: '#8B5CF6' }]}
-                              onPress={() => router.push(`/chat/chat-${activity.id}?displayName=${encodeURIComponent(activity.title)}`)}
-                            >
-                              <MessageCircle size={14} color="#FFFFFF" strokeWidth={2} />
-                              <Text style={styles.chatButtonText}>Chat</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.unregisterButton, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }]}
-                              onPress={() => handleRegistration(activity.id, true)}
-                              disabled={loadingRegistrations[activity.id]}
-                            >
-                              {loadingRegistrations[activity.id] ? (
-                                <ActivityIndicator size={14} color="#6B7280" />
-                              ) : (
-                                <Text style={[styles.unregisterButtonText, { color: '#6B7280' }]}>Se désinscrire</Text>
-                              )}
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <TouchableOpacity
-                            style={[styles.registerButton, { backgroundColor: '#8B5CF6' }]}
-                            onPress={() => handleRegistration(activity.id, false)}
-                            disabled={loadingRegistrations[activity.id]}
-                          >
-                            {loadingRegistrations[activity.id] ? (
-                              <ActivityIndicator size={16} color="#FFFFFF" />
+                      
+                      <Text style={[styles.activityDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {activity.description}
+                      </Text>
+                      
+                      <View style={styles.activityMeta}>
+                        <View style={styles.activityMetaItem}>
+                          <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>{activity.date}</Text>
+                        </View>
+                        <View style={styles.activityMetaItem}>
+                          <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>{activity.duration}</Text>
+                        </View>
+                        <View style={styles.activityMetaItem}>
+                          <Text style={[styles.activityMetaText, { color: colors.textSecondary }]}>
+                            {activity.currentParticipants}/{activity.maxParticipants} participants
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.activityFooter}>
+                        <View style={styles.organizerInfo}>
+                          <Image source={{ uri: activity.organizer.avatar }} style={styles.organizerAvatar} />
+                          <Text style={[styles.organizerName, { color: colors.text }]}>{activity.organizer.name}</Text>
+                          <Text style={[styles.priceText, { color: '#1E40AF' }]}>
+                            {activity.price === 0 ? 'Gratuit' : `${activity.price}€`}
+                          </Text>
+                        </View>
+                        <View style={styles.activityActions}>
+                          {(() => {
+                            const isOrganizer = user?.id === activity.organizer.id;
+                            console.log(`🔍 LISTE ACTIVITÉ "${activity.title}" - Bouton Rejoindre:`, {
+                              userId: user?.id,
+                              userIdType: typeof user?.id,
+                              organizerId: activity.organizer.id,
+                              organizerIdType: typeof activity.organizer.id,
+                              isOrganizer,
+                              isAdmin,
+                              comparison: `'${user?.id}' === '${activity.organizer.id}'`
+                            });
+                            
+                            // Si l'utilisateur est l'organisateur ou admin, ne rien afficher
+                            if (isOrganizer || isAdmin) {
+                              console.log(`❌ BOUTON REJOINDRE CACHÉ pour "${activity.title}" - Vous êtes l'organisateur ou admin`);
+                              return null;
+                            }
+                            
+                            console.log(`✅ BOUTON REJOINDRE VISIBLE pour "${activity.title}"`);
+                            // Sinon, afficher les boutons d'inscription normaux
+                            return registrationStatuses[activity.id]?.isRegistered ? (
+                              <View style={styles.registeredActions}>
+                                <TouchableOpacity
+                                  style={styles.chatButton}
+                                  onPress={() => router.push(`/chat/chat-${activity.id}?displayName=${encodeURIComponent(activity.title)}`)}
+                                >
+                                  <LinearGradient
+                                    colors={['#1E40AF', '#3B82F6']}
+                                    style={styles.chatButtonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                  >
+                                    <MessageCircle size={14} color="#FFFFFF" strokeWidth={2} />
+                                    <Text style={styles.chatButtonText}>Chat</Text>
+                                  </LinearGradient>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[styles.unregisterButton, { borderColor: colors.text }]}
+                                  onPress={() => handleRegistration(activity.id, true)}
+                                  disabled={loadingRegistrations[activity.id]}
+                                >
+                                  {loadingRegistrations[activity.id] ? (
+                                    <ActivityIndicator size={14} color={colors.text} />
+                                  ) : (
+                                    <Text style={[styles.unregisterButtonText, { color: colors.text }]}>Se désinscrire</Text>
+                                  )}
+                                </TouchableOpacity>
+                              </View>
                             ) : (
-                              <Text style={styles.registerButtonText}>Rejoindre</Text>
-                            )}
-                          </TouchableOpacity>
-                        )}
+                              <TouchableOpacity
+                                style={styles.registerButton}
+                                onPress={() => handleRegistration(activity.id, false)}
+                                disabled={loadingRegistrations[activity.id]}
+                              >
+                                <LinearGradient
+                                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                                  style={styles.registerButtonGradient}
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 1 }}
+                                >
+                                  {loadingRegistrations[activity.id] ? (
+                                    <ActivityIndicator size={16} color="#FFFFFF" />
+                                  ) : (
+                                    <Text style={styles.registerButtonText}>Rejoindre</Text>
+                                  )}
+                                </LinearGradient>
+                              </TouchableOpacity>
+                            );
+                          })()}
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            ))}
+                  </TouchableOpacity>
+                </View>
+              ))}
                 </View>
               )}
             </>
@@ -522,7 +635,20 @@ export default function ActivitiesScreen() {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
-      
+
+      {/* Gradient Overlay at Bottom */}
+      <LinearGradient
+        colors={['transparent', isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(250, 250, 250, 0.95)']}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 120,
+          pointerEvents: 'none'
+        }}
+      />
+
       {/* Filter Modal */}
       <Modal
         visible={showFilterModal}
@@ -535,10 +661,17 @@ export default function ActivitiesScreen() {
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Filtrer par période</Text>
               <TouchableOpacity 
-                style={[styles.closeButton, { backgroundColor: '#8B5CF6' }]}
+                style={styles.closeButton}
                 onPress={() => setShowFilterModal(false)}
               >
-                <X size={20} color="#FFFFFF" strokeWidth={2} />
+                <LinearGradient
+                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                  style={styles.closeButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <X size={20} color="#FFFFFF" strokeWidth={2} />
+                </LinearGradient>
               </TouchableOpacity>
             </View>
             
@@ -549,57 +682,66 @@ export default function ActivitiesScreen() {
                 { id: 'week', label: 'Cette semaine' },
                 { id: 'month', label: 'Ce mois' },
                 { id: 'custom', label: 'Période personnalisée' },
-              ].map((period) => (
-                <TouchableOpacity
-                  key={period.id}
-                  style={[
-                    styles.periodOption,
-                    { backgroundColor: colors.background },
-                    selectedPeriod === period.id && { backgroundColor: '#8B5CF6' }
-                  ]}
-                  onPress={() => {
-                    if (period.id === 'custom') {
-                      setSelectedPeriod('custom');
-                      setShowCustomPeriod(true);
-                    } else {
-                      setSelectedPeriod(period.id);
-                      setStartDate(null);
-                      setEndDate(null);
-                      setShowCustomPeriod(false);
-                      setShowFilterModal(false);
-                    }
-                  }}
-                >
-                  <View style={styles.periodOptionContent}>
-                    <Text style={[
-                      styles.periodOptionText,
-                      { color: colors.text },
-                      selectedPeriod === period.id && { color: '#FFFFFF' }
-                    ]}>
-                      {period.id === 'custom' && (startDate || endDate) 
-                        ? `${startDate?.toLocaleDateString('fr-FR') || '...'} - ${endDate?.toLocaleDateString('fr-FR') || '...'}` 
-                        : period.label}
-                    </Text>
-                    {period.id === 'custom' && (
-                      <CalendarDays 
-                        size={16} 
-                        color={selectedPeriod === period.id ? '#FFFFFF' : colors.textSecondary} 
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
+              ].map((period) => {
+                // Obtenir la couleur selon le type d'activité sélectionné
+                const getPeriodColor = () => {
+                  if (selectedType === 'all') return '#1E40AF';
+                  const selectedActivityType = activityTypes.find(t => t.id === selectedType);
+                  return selectedActivityType?.color || '#1E40AF';
+                };
+                
+                return (
+                  <TouchableOpacity
+                    key={period.id}
+                    style={[
+                      styles.periodOption,
+                      { backgroundColor: colors.surface },
+                      selectedPeriod === period.id && { backgroundColor: getPeriodColor() }
+                    ]}
+                    onPress={() => {
+                      if (period.id === 'custom') {
+                        setSelectedPeriod('custom');
+                        setShowCustomPeriod(true);
+                      } else {
+                        setSelectedPeriod(period.id);
+                        setStartDate(null);
+                        setEndDate(null);
+                        setShowCustomPeriod(false);
+                        setShowFilterModal(false);
+                      }
+                    }}
+                  >
+                    <View style={styles.periodOptionContent}>
+                      <Text style={[
+                        styles.periodOptionText,
+                        { color: colors.text },
+                        selectedPeriod === period.id && { color: '#FFFFFF' }
+                      ]}>
+                        {period.id === 'custom' && (startDate || endDate) 
+                          ? `${startDate?.toLocaleDateString('fr-FR') || '...'} - ${endDate?.toLocaleDateString('fr-FR') || '...'}` 
+                          : period.label}
+                      </Text>
+                      {period.id === 'custom' && (
+                        <CalendarDays 
+                          size={16} 
+                          color={selectedPeriod === period.id ? '#FFFFFF' : colors.textSecondary} 
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
               
               {/* Champs de période personnalisée */}
               {selectedPeriod === 'custom' && (
-                <View style={styles.customPeriodContainer}>
+                <View style={[styles.customPeriodContainer, { borderColor: colors.border }]}>
                   <Text style={[styles.customPeriodTitle, { color: colors.text }]}>Sélectionner une période</Text>
                   
                   <View style={styles.dateFieldsContainer}>
                     <View style={styles.dateField}>
                       <Text style={[styles.dateFieldLabel, { color: colors.textSecondary }]}>Début</Text>
                       <TouchableOpacity 
-                        style={[styles.dateFieldButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        style={[styles.dateFieldButton, { borderColor: colors.border, backgroundColor: colors.background }]}
                         onPress={() => {
                           setShowFilterModal(false);
                           setTimeout(() => {
@@ -618,7 +760,7 @@ export default function ActivitiesScreen() {
                     <View style={styles.dateField}>
                       <Text style={[styles.dateFieldLabel, { color: colors.textSecondary }]}>Fin</Text>
                       <TouchableOpacity 
-                        style={[styles.dateFieldButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        style={[styles.dateFieldButton, { borderColor: colors.border, backgroundColor: colors.background }]}
                         onPress={() => {
                           setShowFilterModal(false);
                           setTimeout(() => {
@@ -637,7 +779,7 @@ export default function ActivitiesScreen() {
                   
                   <View style={styles.customPeriodActions}>
                     <TouchableOpacity 
-                      style={[styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                      style={[styles.cancelButton, { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }]}
                       onPress={() => {
                         setSelectedPeriod('all');
                         setStartDate(null);
@@ -645,11 +787,11 @@ export default function ActivitiesScreen() {
                         setShowFilterModal(false);
                       }}
                     >
-                      <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Annuler</Text>
+                      <Text style={[styles.cancelButtonText, { color: colors.text }]}>Réinitialiser</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
-                      style={[styles.applyButton, { backgroundColor: '#8B5CF6' }]}
+                      style={styles.applyButton}
                       onPress={() => {
                         if (startDate || endDate) {
                           setSelectedPeriod('custom');
@@ -659,7 +801,14 @@ export default function ActivitiesScreen() {
                       }}
                       disabled={!startDate && !endDate}
                     >
-                      <Text style={styles.applyButtonText}>Appliquer</Text>
+                      <LinearGradient
+                        colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                        style={styles.applyButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <Text style={styles.applyButtonText}>Appliquer</Text>
+                      </LinearGradient>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -683,16 +832,24 @@ export default function ActivitiesScreen() {
           zIndex: 999999
         }}>
           <View style={{
-            backgroundColor: colors.background,
+            backgroundColor: colors.surface,
             borderRadius: 20,
-            padding: 20,
+            padding: 24,
             margin: 20,
-            minWidth: 300
+            minWidth: 320,
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
           }}>
             <Text style={{
-              fontSize: 18,
-              fontWeight: 'bold',
-              marginBottom: 20,
+              fontSize: 20,
+              fontWeight: '700',
+              marginBottom: 24,
               textAlign: 'center',
               color: colors.text
             }}>
@@ -703,6 +860,7 @@ export default function ActivitiesScreen() {
               value={(datePickerType === 'start' ? startDate : endDate) || new Date()}
               mode="date"
               display="spinner"
+              textColor={colors.text}
               onChange={(event, date) => {
                 if (date) {
                   if (datePickerType === 'start') {
@@ -717,23 +875,26 @@ export default function ActivitiesScreen() {
             
             <View style={{
               flexDirection: 'row',
-              justifyContent: 'space-around',
-              marginTop: 20
+              justifyContent: 'space-between',
+              marginTop: 24,
+              gap: 12
             }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: colors.border,
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  minWidth: 80
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                  alignItems: 'center',
                 }}
                 onPress={() => setShowDatePicker(false)}
               >
                 <Text style={{
                   color: colors.text,
-                  textAlign: 'center',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  fontSize: 16
                 }}>
                   Annuler
                 </Text>
@@ -741,11 +902,9 @@ export default function ActivitiesScreen() {
               
               <TouchableOpacity
                 style={{
-                  backgroundColor: '#8B5CF6',
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  minWidth: 80
+                  flex: 1,
+                  borderRadius: 12,
+                  overflow: 'hidden',
                 }}
                 onPress={() => {
                   setShowDatePicker(false);
@@ -754,19 +913,31 @@ export default function ActivitiesScreen() {
                   }, 300);
                 }}
               >
-                <Text style={{
-                  color: 'white',
-                  textAlign: 'center',
-                  fontWeight: '600'
-                }}>
-                  OK
-                </Text>
+                <LinearGradient
+                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                  style={{
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 16
+                  }}>
+                    Valider
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
+  </View>
   );
 }
 
@@ -774,9 +945,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  darkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  safeArea: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 20,
   },
   headerTop: {
@@ -789,24 +979,24 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
   },
-  createButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   modernCreateButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
+  },
+  modernCreateButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -900,37 +1090,37 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   enhancedActivityCard: {
-    shadowColor: '#667EEA',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 6,
-    padding: 12,
+    padding: 0,
   },
   imageContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 0,
   },
   activityImage: {
     width: '100%',
-    height: 120,
-    borderRadius: 12,
+    height: 160,
     resizeMode: 'cover',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   imageOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    height: 80,
     justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
   activityContent: {
     gap: 8,
+    padding: 16,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -1010,7 +1200,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomSpacing: {
-    height: 100,
+    height: 140,
   },
   loadingContainer: {
     flex: 1,
@@ -1036,7 +1226,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1063,14 +1253,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     gap: 6,
-    shadowColor: '#8B5CF6',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  chatButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
   },
   chatButtonText: {
     color: '#FFFFFF',
@@ -1080,18 +1275,23 @@ const styles = StyleSheet.create({
   registerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     gap: 6,
-    shadowColor: '#8B5CF6',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  registerButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
   },
   registerButtonText: {
     color: '#FFFFFF',
@@ -1138,6 +1338,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  closeButtonGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   periodOptions: {
     gap: 12,
@@ -1177,8 +1389,22 @@ const styles = StyleSheet.create({
   },
   resetFilterButton: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 16,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  resetFilterButtonGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resetFilterText: {
     color: '#FFFFFF',
@@ -1226,25 +1452,33 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   applyButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  applyButtonGradient: {
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   applyButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
 });
-

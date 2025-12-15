@@ -8,18 +8,14 @@ import {
   ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Home, ArrowLeft } from 'lucide-react-native';
+import { Home } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function NotFoundScreen() {
   const { colors } = useTheme();
 
   const handleGoHome = () => {
-    router.replace('/(tabs)/activities');
-  };
-
-  const handleGoBack = () => {
-    router.back();
+    router.push('/(tabs)/activities');
   };
 
   return (
@@ -49,14 +45,6 @@ export default function NotFoundScreen() {
                 <Home size={20} color="#FFFFFF" strokeWidth={2} />
                 <Text style={styles.buttonText}>Retour à l'accueil</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.button, styles.backButton]} 
-                onPress={handleGoBack}
-              >
-                <ArrowLeft size={20} color="#8B5CF6" strokeWidth={2} />
-                <Text style={[styles.backButtonText]}>Retour</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </SafeAreaView>
@@ -85,7 +73,7 @@ const styles = StyleSheet.create({
   errorCode: {
     fontSize: 72,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#1E40AF',
     marginBottom: 16,
   },
   title: {
@@ -116,19 +104,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   homeButton: {
-    backgroundColor: '#8B5CF6',
-  },
-  backButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#1E40AF',
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',

@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import chatService, { ChatMessage, ChatParticipant } from '@/services/chatService';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ export default function ChatScreen() {
   const { colors } = useTheme();
   const { getToken } = useAuth();
   const { user } = useUser();
+  const { markAsRead } = useNotifications();
   const [message, setMessage] = useState('');
   const [showImageOptions, setShowImageOptions] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -64,7 +66,17 @@ export default function ChatScreen() {
   // Détecter le type de chat et extraire l'ID approprié
   const chatId = typeof id === 'string' ? id : '';
   const isPrivateChat = chatId.startsWith('private-');
-  const activityId = isPrivateChat ? '' : chatId.replace('chat-', '');
+  // Nettoyage agressif de l'ID pour éviter les doubles préfixes ou erreurs
+  const activityId = isPrivateChat ? '' : chatId.replace(/^chat-/, '').replace(/^activity-/, '');
+
+  console.log(`🔍 ChatScreen init: chatId='${chatId}', activityId='${activityId}'`);
+
+  // Marquer les messages comme lus quand on ouvre le chat
+  useEffect(() => {
+    if (chatId) {
+      markAsRead(chatId);
+    }
+  }, [chatId]);
 
   const sendMessage = async () => {
     if (!message.trim() || sending || !chatId) return;
@@ -102,7 +114,10 @@ export default function ChatScreen() {
         }
       };
       
-      setMessages(prev => [...prev, localMessage]);
+      setMessages(prev => {
+        if (prev.some(msg => msg.id === localMessage.id)) return prev;
+        return [...prev, localMessage];
+      });
     } catch (error) {
       console.error('Erreur envoi message:', error);
       Alert.alert('Erreur', 'Impossible d\'envoyer le message');
@@ -173,7 +188,10 @@ export default function ChatScreen() {
         }
       };
       
-      setMessages(prev => [...prev, localMessage]);
+      setMessages(prev => {
+        if (prev.some(msg => msg.id === localMessage.id)) return prev;
+        return [...prev, localMessage];
+      });
     } catch (error) {
       console.error('Erreur envoi image:', error);
       Alert.alert('Erreur', 'Impossible d\'envoyer l\'image');
@@ -238,7 +256,7 @@ export default function ChatScreen() {
         
         if (isPrivateChat) {
           // Pour les chats privés, récupérer les données depuis l'API conversations
-          const conversationsResponse = await fetch(`http://192.168.1.62:5000/api/discussions/conversations`, {
+          const conversationsResponse = await fetch(`${process.env.EXPO_PUBLIC_URL_BACKEND}/discussions/conversations`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -268,16 +286,21 @@ export default function ChatScreen() {
           const { messages: chatMessages } = await chatService.getPrivateMessages(chatId, token);
           console.log('📨 Messages privés reçus:', chatMessages);
           
-          const formattedMessages: Message[] = chatMessages.map((msg: ChatMessage) => ({
-            id: msg.id,
-            text: msg.content,
-            sender: msg.user.fullName || `${msg.user.firstName} ${msg.user.lastName}`.trim(),
-            timestamp: new Date(msg.createdAt),
-            isMe: msg.userId === user.id,
-            type: msg.messageType === 'IMAGE' ? 'image' : 'text',
-            imageUri: msg.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${msg.mediaUrl}` : undefined,
-            user: msg.user
-          }));
+          const formattedMessages: Message[] = chatMessages.map((msg: ChatMessage) => {
+            // Vérification stricte de l'ID utilisateur pour isMe
+            const isMe = msg.userId === user.id;
+            
+            return {
+              id: msg.id,
+              text: msg.content,
+              sender: msg.user.fullName || `${msg.user.firstName} ${msg.user.lastName}`.trim(),
+              timestamp: new Date(msg.createdAt),
+              isMe: isMe,
+              type: msg.messageType === 'IMAGE' ? 'image' : 'text',
+              imageUri: msg.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${msg.mediaUrl}` : undefined,
+              user: msg.user
+            };
+          });
           
           console.log('📝 Messages privés formatés:', formattedMessages);
           setMessages(formattedMessages);
@@ -296,24 +319,37 @@ export default function ChatScreen() {
           const { messages: chatMessages } = await chatService.getActivityMessages(activityId, token);
           console.log('📨 Messages reçus:', chatMessages);
           
-          const formattedMessages: Message[] = chatMessages.map((msg: ChatMessage) => ({
-            id: msg.id,
-            text: msg.content,
-            sender: msg.user.fullName || `${msg.user.firstName} ${msg.user.lastName}`.trim(),
-            timestamp: new Date(msg.createdAt),
-            isMe: msg.userId === user.id,
-            type: msg.messageType === 'IMAGE' ? 'image' : 'text',
-            imageUri: msg.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${msg.mediaUrl}` : undefined,
-            user: msg.user
-          }));
+          const formattedMessages: Message[] = chatMessages.map((msg: ChatMessage) => {
+            // Vérification stricte de l'ID utilisateur pour isMe
+            const isMe = msg.userId === user.id;
+            
+            return {
+              id: msg.id,
+              text: msg.content,
+              sender: msg.user.fullName || `${msg.user.firstName} ${msg.user.lastName}`.trim(),
+              timestamp: new Date(msg.createdAt),
+              isMe: isMe,
+              type: msg.messageType === 'IMAGE' ? 'image' : 'text',
+              imageUri: msg.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${msg.mediaUrl}` : undefined,
+              user: msg.user
+            };
+          });
           
           console.log('📝 Messages formatés:', formattedMessages);
           setMessages(formattedMessages);
           
-          // Charger les participants
-          const chatParticipants = await chatService.getChatParticipants(activityId, token);
-          console.log('👥 Participants reçus:', chatParticipants);
-          setParticipants(chatParticipants);
+          // Charger les participants (gérer silencieusement les erreurs d'auth)
+          try {
+            const chatParticipants = await chatService.getChatParticipants(activityId, token);
+            console.log('👥 Participants reçus:', chatParticipants);
+            setParticipants(chatParticipants);
+          } catch (participantsError: any) {
+            // Gérer silencieusement les erreurs 401 - session expirée
+            if (participantsError?.message !== 'UNAUTHORIZED') {
+              console.error('Erreur chargement participants:', participantsError);
+            }
+            setParticipants([]);
+          }
           
           // Récupérer les données de l'activité depuis l'API conversations
           let extractedActivityName = 'Chat de l\'activité';
@@ -321,7 +357,7 @@ export default function ChatScreen() {
           
           try {
             // Récupérer les données depuis l'API conversations
-            const conversationsResponse = await fetch(`http://192.168.1.62:5000/api/discussions/conversations`, {
+            const conversationsResponse = await fetch(`${process.env.EXPO_PUBLIC_URL_BACKEND}/discussions/conversations`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -368,23 +404,30 @@ export default function ChatScreen() {
         chatService.leaveActivityChat(activityId);
       }
     };
-  }, [chatId, activityId, isPrivateChat, user]);
+  }, [chatId, activityId, isPrivateChat, user?.id]);
   
   // S'abonner aux nouveaux messages
   useEffect(() => {
     const handleNewMessage = (newMessage: ChatMessage) => {
-      const formattedMessage: Message = {
-        id: newMessage.id,
-        text: newMessage.content,
-        sender: newMessage.user.fullName || `${newMessage.user.firstName} ${newMessage.user.lastName}`.trim(),
-        timestamp: new Date(newMessage.createdAt),
-        isMe: newMessage.userId === user?.id,
-        type: newMessage.messageType === 'IMAGE' ? 'image' : 'text',
-        imageUri: newMessage.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${newMessage.mediaUrl}` : undefined,
-        user: newMessage.user
-      };
-      
-      setMessages(prev => [...prev, formattedMessage]);
+      setMessages(prev => {
+        // Vérifier si le message existe déjà pour éviter les doublons (notamment celui qu'on vient d'envoyer)
+        if (prev.some(msg => msg.id === newMessage.id)) {
+          return prev;
+        }
+
+        const formattedMessage: Message = {
+          id: newMessage.id,
+          text: newMessage.content,
+          sender: newMessage.user.fullName || `${newMessage.user.firstName} ${newMessage.user.lastName}`.trim(),
+          timestamp: new Date(newMessage.createdAt),
+          isMe: newMessage.userId === user?.id,
+          type: newMessage.messageType === 'IMAGE' ? 'image' : 'text',
+          imageUri: newMessage.mediaUrl ? `${process.env.EXPO_PUBLIC_URL_BACKEND?.replace('/api', '')}${newMessage.mediaUrl}` : undefined,
+          user: newMessage.user
+        };
+        
+        return [...prev, formattedMessage];
+      });
     };
     
     const callbackId = chatService.onNewMessage(handleNewMessage);
@@ -392,7 +435,7 @@ export default function ChatScreen() {
     return () => {
       chatService.offNewMessage(callbackId);
     };
-  }, [user]);
+  }, [user?.id]);
   
   // Auto-scroll vers le bas
   useEffect(() => {
@@ -409,30 +452,50 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={20} color="#FFFFFF" />
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={() => router.back()}>
+          {isPrivateChat ? (
+            <View style={[styles.backButton, { backgroundColor: '#1E40AF' }]}>
+              <ArrowLeft size={20} color="#FFFFFF" />
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#EAB308', '#FACC15']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.backButton, { backgroundColor: 'transparent', shadowColor: '#EAB308' }]}
+            >
+              <ArrowLeft size={20} color="#FFFFFF" />
+            </LinearGradient>
+          )}
         </TouchableOpacity>
         
         <View style={styles.headerAvatarContainer}>
           <Image 
             source={{ uri: isPrivateChat ? organizerAvatar : activityImage }} 
-            style={[styles.headerAvatar, { borderWidth: 3, borderColor: '#A855F7' }]}
+            style={[styles.headerAvatar, { borderWidth: 3, borderColor: isPrivateChat ? '#1E40AF' : '#EAB308' }]}
           />
-          <View style={[styles.headerTypeIcon, { backgroundColor: isPrivateChat ? '#8B5CF6' : '#10B981' }]}>
-            {isPrivateChat ? (
+          {isPrivateChat ? (
+            <View style={[styles.headerTypeIcon, { backgroundColor: '#1E40AF', borderColor: '#FFFFFF', borderWidth: 1 }]}>
               <Lock size={9} color="#FFFFFF" strokeWidth={2} />
-            ) : (
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#EAB308', '#FACC15']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.headerTypeIcon, { borderColor: '#FFFFFF', borderWidth: 1 }]}
+            >
               <Users size={9} color="#FFFFFF" strokeWidth={2} />
-            )}
-          </View>
+            </LinearGradient>
+          )}
           {!isPrivateChat && participants.some((p: any) => p.isOnline) && (
-            <View style={styles.headerOnlineIndicator} />
+            <View style={[styles.headerOnlineIndicator, { borderColor: '#EAB308' }]} />
           )}
         </View>
         
         <View style={styles.headerInfo}>
-          <Text style={[styles.headerTitle, { color: '#8B5CF6' }]} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={[styles.headerTitle, { color: isPrivateChat ? colors.text : '#EAB308' }]} numberOfLines={1} ellipsizeMode="tail">
             {displayName ? (typeof displayName === 'string' ? displayName : displayName[0]) : 
              (isPrivateChat ? (organizerName || 'Organisateur') : (activityName || 'Chat de l\'activité'))}
           </Text>
@@ -444,7 +507,7 @@ export default function ChatScreen() {
           </Text>
           {isPrivateChat && (
             <LinearGradient
-              colors={['#6366F1', '#8B5CF6']}
+              colors={['#1E40AF', '#3B82F6']}
               style={styles.headerPrivateBadge}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -454,7 +517,7 @@ export default function ChatScreen() {
           )}
           {!isPrivateChat && (
             <LinearGradient
-              colors={['#10B981', '#059669']}
+              colors={['#EAB308', '#FACC15']}
               style={styles.headerGroupBadge}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -472,7 +535,7 @@ export default function ChatScreen() {
         {/* Messages */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
+            <ActivityIndicator size="large" color="#1E40AF" />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               Chargement du chat...
             </Text>
@@ -505,31 +568,57 @@ export default function ChatScreen() {
                 msg.isMe ? styles.myMessageContainer : styles.otherMessageContainer
               ]}
             >
-              {!msg.isMe && (
-                <Text style={[styles.senderName, { color: colors.textSecondary }]}>
-                  {msg.sender}
-                </Text>
-              )}
-              <View style={[
-                styles.messageBubble,
-                msg.isMe ? styles.myMessageBubble : [styles.otherMessageBubble, { backgroundColor: colors.surface }]
+              <Text style={[
+                styles.senderName, 
+                { color: colors.textSecondary },
+                msg.isMe ? { alignSelf: 'flex-end', marginRight: 12, marginLeft: 0 } : {}
               ]}>
-                {msg.type === 'image' && msg.imageUri ? (
-                  <TouchableOpacity onPress={() => setSelectedImage(msg.imageUri!)}>
-                    <Image 
-                      source={{ uri: msg.imageUri }} 
-                      style={styles.messageImage}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={[
-                    styles.messageText,
-                    msg.isMe ? styles.myMessageText : { color: colors.text }
-                  ]}>
-                    {msg.text}
-                  </Text>
-                )}
-              </View>
+                {msg.isMe ? 'Vous' : (isPrivateChat && organizerName ? organizerName : msg.sender)}
+              </Text>
+              
+              {!isPrivateChat && msg.isMe ? (
+                <LinearGradient
+                  colors={['#EAB308', '#FACC15']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.messageBubble, styles.myMessageBubble, { backgroundColor: 'transparent' }]}
+                >
+                  {msg.type === 'image' && msg.imageUri ? (
+                    <TouchableOpacity onPress={() => setSelectedImage(msg.imageUri!)}>
+                      <Image 
+                        source={{ uri: msg.imageUri }} 
+                        style={[styles.messageImage, { borderColor: '#FFFFFF' }]}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={[styles.messageText, styles.myMessageText]}>
+                      {msg.text}
+                    </Text>
+                  )}
+                </LinearGradient>
+              ) : (
+                <View style={[
+                  styles.messageBubble,
+                  msg.isMe ? [styles.myMessageBubble, { backgroundColor: '#1E40AF' }] : [styles.otherMessageBubble, { backgroundColor: colors.surface }]
+                ]}>
+                  {msg.type === 'image' && msg.imageUri ? (
+                    <TouchableOpacity onPress={() => setSelectedImage(msg.imageUri!)}>
+                      <Image 
+                        source={{ uri: msg.imageUri }} 
+                        style={[styles.messageImage, { borderColor: isPrivateChat ? '#1E40AF' : '#EAB308' }]}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={[
+                      styles.messageText,
+                      msg.isMe ? styles.myMessageText : { color: colors.text }
+                    ]}>
+                      {msg.text}
+                    </Text>
+                  )}
+                </View>
+              )}
+
               <Text style={[
                 styles.messageTime,
                 { color: colors.textSecondary },
@@ -564,15 +653,27 @@ export default function ChatScreen() {
           )}
           
           <TouchableOpacity
-            style={styles.imageButton}
             onPress={() => setShowImageOptions(!showImageOptions)}
           >
-            <Plus 
-              size={20} 
-              color="white" 
-              strokeWidth={2}
-              style={{ transform: [{ rotate: showImageOptions ? '45deg' : '0deg' }] }}
-            />
+            {isPrivateChat ? (
+              <View style={[styles.imageButton, { backgroundColor: '#1E40AF' }]}>
+                <Plus 
+                  size={20} 
+                  color="white" 
+                  strokeWidth={2}
+                  style={{ transform: [{ rotate: showImageOptions ? '45deg' : '0deg' }] }}
+                />
+              </View>
+            ) : (
+              <View style={[styles.imageButton, { backgroundColor: '#1E40AF' }]}>
+                <Plus 
+                  size={20} 
+                  color="white" 
+                  strokeWidth={2}
+                  style={{ transform: [{ rotate: showImageOptions ? '45deg' : '0deg' }] }}
+                />
+              </View>
+            )}
           </TouchableOpacity>
           
           <View style={[styles.inputWrapper, { backgroundColor: colors.surface }]}>
@@ -589,19 +690,25 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={sendMessage}
             disabled={!message.trim() || sending}
-            style={[
-              styles.sendButton,
-              { backgroundColor: message.trim() && !sending ? '#8B5CF6' : colors.border }
-            ]}
           >
-            {sending ? (
-              <ActivityIndicator size={18} color="#FFFFFF" />
+            {message.trim() && !sending ? (
+              isPrivateChat ? (
+                <View style={[styles.sendButton, { backgroundColor: '#1E40AF' }]}>
+                  <Send size={18} color="#FFFFFF" strokeWidth={2} />
+                </View>
+              ) : (
+                <View style={[styles.sendButton, { backgroundColor: '#1E40AF' }]}>
+                  <Send size={18} color="#FFFFFF" strokeWidth={2} />
+                </View>
+              )
             ) : (
-              <Send 
-                size={18} 
-                color={message.trim() && !sending ? '#FFFFFF' : colors.textSecondary} 
-                strokeWidth={2} 
-              />
+              <View style={[styles.sendButton, { backgroundColor: colors.border }]}>
+                {sending ? (
+                  <ActivityIndicator size={18} color="#FFFFFF" />
+                ) : (
+                  <Send size={18} color={colors.textSecondary} strokeWidth={2} />
+                )}
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -662,10 +769,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -724,7 +831,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    marginTop: 4,
   },
   headerPrivateBadgeText: {
     color: '#FFFFFF',
@@ -735,7 +841,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    marginTop: 4,
   },
   headerGroupBadgeText: {
     color: '#FFFFFF',
@@ -751,6 +856,7 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 20,
     paddingBottom: 10,
+    flexGrow: 1,
   },
   messageContainer: {
     marginBottom: 16,
@@ -779,7 +885,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   myMessageBubble: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF', // Bleu foncé (thème app)
     borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
@@ -851,7 +957,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -886,7 +992,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     resizeMode: 'cover',
     borderWidth: 2,
-    borderColor: '#8B5CF6',
+    borderColor: '#1E40AF',
   },
   imageViewerContainer: {
     flex: 1,

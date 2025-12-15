@@ -1,80 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
+  TouchableOpacity,
   Image,
   Dimensions,
+  StatusBar,
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withDelay,
-  withSequence,
-  Easing
-} from 'react-native-reanimated';
+import { ArrowRight, MapPin, Star, Users } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
-  const logoScale = useSharedValue(0.5);
-  const logoOpacity = useSharedValue(0);
-  const titleOpacity = useSharedValue(0);
-  const titleTranslateY = useSharedValue(50);
-  const backgroundOpacity = useSharedValue(0);
-  const pulseScale = useSharedValue(1);
-
   const navigateToGetStarted = () => {
     router.replace('/get-started' as any);
   };
 
   useEffect(() => {
-    // Animation du fond
-    backgroundOpacity.value = withTiming(1, { duration: 800 });
-    
-    // Animation du logo avec effet de pulsation
-    logoScale.value = withSequence(
-      withTiming(1.2, { duration: 600, easing: Easing.out(Easing.cubic) }),
-      withTiming(1, { duration: 400, easing: Easing.inOut(Easing.cubic) })
-    );
-    logoOpacity.value = withTiming(1, { duration: 800 });
-    
-    // Effet de pulsation continue
-    pulseScale.value = withSequence(
-      withDelay(800, withTiming(1.05, { duration: 1000 })),
-      withTiming(1, { duration: 1000 })
-    );
-    
-    // Animation du titre
-    titleOpacity.value = withDelay(600, withTiming(1, { duration: 800 }));
-    titleTranslateY.value = withDelay(600, withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) }));
-    
-    // Navigation automatique après 3 secondes
     setTimeout(() => {
       navigateToGetStarted();
     }, 3000);
   }, []);
-
-  const backgroundAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: backgroundOpacity.value,
-  }));
-
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: logoScale.value * pulseScale.value }
-    ],
-    opacity: logoOpacity.value,
-  }));
-
-  const titleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: titleOpacity.value,
-    transform: [{ translateY: titleTranslateY.value }],
-  }));
 
   return (
     <View style={styles.container}>
@@ -86,38 +36,39 @@ export default function SplashScreen() {
       
       {/* Overlay */}
       <LinearGradient
-        colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.8)']}
+        colors={['rgba(99,102,241,0.4)', 'rgba(139,92,246,0.7)', 'rgba(139,92,246,0.8)']}
         style={styles.gradient}
       >
         {/* Background pattern */}
-        <Animated.View style={[styles.backgroundPattern, backgroundAnimatedStyle]}>
+        <View style={styles.backgroundPattern}>
           <View style={styles.circle1} />
           <View style={styles.circle2} />
           <View style={styles.circle3} />
-        </Animated.View>
+        </View>
 
         <View style={styles.content}>
           {/* Logo */}
-          <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
+          <View style={styles.logoContainer}>
             <LinearGradient
-              colors={['#8B5CF6', '#A855F7', '#C084FC']}
+              colors={['#1E40AF', '#3B82F6']}
               style={styles.logo}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
               <Text style={styles.logoText}>🏛️</Text>
             </LinearGradient>
-          </Animated.View>
+            <Text style={styles.appName}>ExploRouen</Text>
+            <Text style={styles.tagline}>Découvrez les trésors de Rouen</Text>
+          </View>
 
-          {/* Title */}
-          <Animated.View style={titleAnimatedStyle}>
-            <Text style={styles.title}>ExploRouen</Text>
-            <Text style={styles.subtitle}>Découvrez Rouen</Text>
-          </Animated.View>
-        </View>
-
-        {/* Loading indicator */}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#8B5CF6" />
-          <Text style={styles.loadingText}>Chargement...</Text>
+          {/* Loading indicator */}
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingBar}>
+              <View style={styles.loadingProgress} />
+            </View>
+            <ActivityIndicator size="large" color="#6366F1" />
+            <Text style={styles.loadingText}>Chargement...</Text>
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -153,7 +104,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    backgroundColor: 'rgba(99,102,241,0.1)',
     top: -50,
     right: -50,
   },
@@ -162,7 +113,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(168, 85, 247, 0.08)',
+    backgroundColor: 'rgba(139,92,246,0.08)',
     bottom: 100,
     left: -30,
   },
@@ -171,7 +122,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(192, 132, 252, 0.06)',
+    backgroundColor: 'rgba(99,102,241,0.06)',
     top: '40%',
     right: 20,
   },
@@ -190,7 +141,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -199,17 +150,17 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 60,
   },
-  title: {
-    fontSize: 42,
-    fontWeight: '900',
+  appName: {
+    fontSize: 24,
+    fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -1.5,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: '500',
+  tagline: {
+    fontSize: 16,
+    fontWeight: '400',
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     letterSpacing: 0.5,
@@ -221,12 +172,6 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#8B5CF6',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-  },
   loadingBar: {
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -235,8 +180,14 @@ const styles = StyleSheet.create({
   },
   loadingProgress: {
     height: '100%',
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#6366F1',
     borderRadius: 2,
     width: '100%',
+  },
+  loadingText: {
+    color: '#6366F1',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
   },
 });

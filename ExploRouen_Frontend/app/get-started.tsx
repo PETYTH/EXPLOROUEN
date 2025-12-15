@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   Image,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
@@ -104,7 +104,7 @@ export default function GetStartedScreen() {
             }}
           >
             <LinearGradient
-              colors={['#8B5CF6', '#8B5CF6']}
+              colors={['#1E40AF', '#3B82F6']}
               style={styles.primaryButtonGradient}
             >
               <Text style={styles.primaryButtonText}>Commencer</Text>
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: {
       width: 0,
       height: 4,

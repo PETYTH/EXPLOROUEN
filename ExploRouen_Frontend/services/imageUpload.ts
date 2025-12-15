@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://192.168.1.62:5000/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
 
 export interface UploadImageResponse {
   success: boolean;
@@ -34,6 +34,10 @@ export const uploadImage = async (imageUri: string, token: string): Promise<stri
       type: type,
     } as any);
 
+    // Timeout pour l'upload (120 secondes pour les grosses images)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
     const response = await fetch(`${API_BASE_URL}/upload/image`, {
       method: 'POST',
       headers: {
@@ -41,7 +45,10 @@ export const uploadImage = async (imageUri: string, token: string): Promise<stri
         'Content-Type': 'multipart/form-data',
       },
       body: formData,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const result: UploadImageResponse = await response.json();
 
@@ -53,8 +60,17 @@ export const uploadImage = async (imageUri: string, token: string): Promise<stri
     return result.data?.url || null;
 
   } catch (error: any) {
-    console.error('❌ Erreur upload image:', error);
-    Alert.alert('Erreur', `Impossible d'uploader l'image: ${error.message}`);
+    if (error.name === 'AbortError') {
+      if (__DEV__) {
+        console.warn('⏱️ Upload timeout');
+      }
+      Alert.alert('Erreur', 'L\'upload de l\'image a pris trop de temps. Essayez avec une image plus petite.');
+    } else {
+      if (__DEV__) {
+        console.warn('Upload error:', error);
+      }
+      Alert.alert('Erreur', error.message || 'Impossible d\'uploader l\'image');
+    }
     return null;
   }
 };

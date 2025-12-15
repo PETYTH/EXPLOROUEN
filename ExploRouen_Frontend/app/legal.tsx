@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,10 +19,10 @@ export default function LegalScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={[styles.backButton, { backgroundColor: colors.buttonPrimary }]} 
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
+          <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Mentions légales</Text>
         <View style={styles.placeholder} />

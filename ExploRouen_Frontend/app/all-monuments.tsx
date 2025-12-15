@@ -13,27 +13,26 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Search, MapPin, Clock, Filter, Plus, ChevronRight, X } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Search, MapPin, Clock, Filter, Plus, ChevronRight, X, Users, Star } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@clerk/clerk-expo';
 import ApiService from '@/services/api';
 import StarRating from '@/components/StarRating';
 import FloatingMenu from '@/components/FloatingMenu';
 import { useRole } from '../hooks/useRole';
+import { useMonuments } from '@/contexts/MonumentsContext';
 
 export default function AllMonumentsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [monuments, setMonuments] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { isAdmin } = useRole();
+  const { monuments, loading, loadMonuments, refreshMonuments } = useMonuments();
 
   // Fonction pour obtenir le type dynamique selon la catégorie
   const getItemType = () => {
@@ -41,14 +40,18 @@ export default function AllMonumentsScreen() {
       return 'monument';
     }
     switch (selectedCategory) {
-      case 'MONUMENT':
-        return 'monument';
+      case 'HISTORIC':
+        return 'Historique';
+      case 'RELIGIOUS':
+        return 'Religieux';
+      case 'OLD_HOUSE':
+        return 'Maison ancienne';
+      case 'CIVIL':
+        return 'Civil';
       case 'MUSEUM':
-        return 'musée';
-      case 'PARK':
-        return 'parc';
-      case 'CHURCH':
-        return 'église';
+        return 'Musée';
+      case 'MEMORIAL':
+        return 'Commémoratif';
       default:
         return 'monument';
     }
@@ -58,54 +61,58 @@ export default function AllMonumentsScreen() {
   const getCategoryColor = (category: string) => {
     console.log('Category:', category); // Debug
     switch (category) {
-      case 'MONUMENT':
-        return '#10B981'; // Vert
+      case 'HISTORIC':
+        return '#F59E0B';
+      case 'RELIGIOUS':
+        return '#6366F1';
+      case 'OLD_HOUSE':
+        return '#8B5CF6';
+      case 'CIVIL':
+        return '#10B981';
       case 'MUSEUM':
-        return '#F59E0B'; // Orange
-      case 'PARK':
-        return '#EC4899'; // Rose
-      case 'CHURCH':
-        return '#8B5CF6'; // Violet
+        return '#EC4899';
+      case 'MEMORIAL':
+        return '#6B7280';
       default:
-        return '#10B981'; // Vert par défaut pour les monuments
+        return '#10B981';
     }
   };
 
   // Fonction pour obtenir le label de la catégorie
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'MONUMENT':
-        return 'Monument';
+      case 'HISTORIC':
+        return 'Historique';
+      case 'RELIGIOUS':
+        return 'Religieux';
+      case 'OLD_HOUSE':
+        return 'Maison ancienne';
+      case 'CIVIL':
+        return 'Civil';
       case 'MUSEUM':
         return 'Musée';
-      case 'PARK':
-        return 'Parc';
-      case 'CHURCH':
-        return 'Église';
+      case 'MEMORIAL':
+        return 'Commémoratif';
       default:
         return 'Monument';
     }
   };
 
   const categories = [
-    { id: 'all', label: 'Toutes', color: '#8B5CF6' },
-    { id: 'MONUMENT', label: 'Monument', color: '#10B981' },
-    { id: 'MUSEUM', label: 'Musée', color: '#F59E0B' },
-    { id: 'PARK', label: 'Parc', color: '#EC4899' },
-    { id: 'CHURCH', label: 'Église', color: '#8B5CF6' },
+    { id: 'all', label: 'Tous', color: '#1E40AF' },
+    { id: 'HISTORIC', label: 'Historique', color: '#F59E0B' },
+    { id: 'RELIGIOUS', label: 'Religieux', color: '#6366F1' },
+    { id: 'OLD_HOUSE', label: 'Maison ancienne', color: '#8B5CF6' },
+    { id: 'CIVIL', label: 'Civil', color: '#10B981' },
+    { id: 'MUSEUM', label: 'Musée', color: '#EC4899' },
+    { id: 'MEMORIAL', label: 'Commémoratif', color: '#6B7280' },
   ];
 
-  const loadMonuments = async () => {
-    try {
-      const response = await ApiService.getMonuments();
-      setMonuments(response || []);
-      setLoading(false);
-    } catch (error) {
-      console.error('Erreur lors du chargement des monuments:', error);
-      Alert.alert('Erreur', 'Impossible de charger les monuments');
-      setLoading(false);
+  useEffect(() => {
+    if (monuments.length === 0) {
+      loadMonuments();
     }
-  };
+  }, []);
 
   const filteredMonuments = monuments.filter(monument => {
     const matchesSearch = monument.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,8 +122,7 @@ export default function AllMonumentsScreen() {
     console.log('Monument:', monument.name, 'Category:', monument.category, 'Selected:', selectedCategory);
     
     const matchesCategory = !selectedCategory || selectedCategory === 'all' || 
-                           monument.category === selectedCategory ||
-                           (selectedCategory === 'MONUMENT' && (!monument.category || monument.category === 'MONUMENT'));
+                           monument.category === selectedCategory;
     
     // Filtrage par période historique basé sur les mots-clés dans la description
     let matchesPeriod = true;
@@ -165,217 +171,262 @@ export default function AllMonumentsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMonuments();
+    await refreshMonuments();
     setRefreshing(false);
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100)} style={[styles.header, { backgroundColor: colors.background }]}>
-        <View style={styles.headerTop}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Monuments</Text>
-          {isAdmin && (
-            <TouchableOpacity 
-              style={[styles.modernCreateButton, { backgroundColor: '#8B5CF6' }]}
-              onPress={() => router.push('/create-monument')}
-            >
-              <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </Animated.View>
-
-      {/* Search Bar */}
-      <Animated.View entering={FadeInDown.delay(200)} style={styles.searchSection}>
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-          <Search size={18} color={colors.textSecondary} strokeWidth={2} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Rechercher un monument..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={colors.textSecondary}
-          />
-          <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => setShowFilterModal(true)}
-          >
-            <Filter size={18} color={colors.textSecondary} strokeWidth={2} />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
-      {/* Categories */}
-      <Animated.View entering={FadeInDown.delay(300)} style={styles.categoriesSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryButton,
-                { backgroundColor: colors.surface },
-                selectedCategory === category.id && { backgroundColor: category.color }
-              ]}
-              onPress={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
-            >
-              <Text style={[
-                styles.categoryText,
-                { color: colors.textSecondary },
-                selectedCategory === category.id && { color: '#FFFFFF' }
-              ]}>
-                {category.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Animated.View>
-
-      {/* Results Count */}
-      <Animated.View entering={FadeInDown.delay(400)} style={styles.resultsSection}>
-        <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
-          {sortedMonuments.filter(monument => {
-            const matchesSearch = monument.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              monument.description.toLowerCase().includes(searchQuery.toLowerCase());
-            
-            const matchesCategory = !selectedCategory || selectedCategory === 'all' || monument.category === selectedCategory;
-            
-            let matchesPeriod = true;
-            if (selectedPeriod !== 'all') {
-              // Logique de filtrage par période si nécessaire
-            }
-            
-            return matchesSearch && matchesCategory && matchesPeriod;
-          }).length} {getItemType()}(s) trouvé(s)
-        </Text>
-      </Animated.View>
-
-      {/* Content */}
-      <ScrollView 
-        style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {filteredMonuments.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Aucun {getItemType()} trouvé
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.monumentsList}>
-            {filteredMonuments.map((monument, index) => (
-              <Animated.View 
-                key={monument.id}
-                entering={FadeInDown.delay(500 + index * 100)}
+    <View style={styles.container}>
+      {/* Image de fond plein écran */}
+      <Image 
+        source={require('../assets/images/cathedrale-rouen.jpg')}
+        style={styles.backgroundImage}
+      />
+      
+      {/* Dark Overlay pour assombrir toute l'image */}
+      <View style={[styles.darkOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)', position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}]} />
+      
+      <View style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+          <View style={styles.headerTop}>
+            <Text style={styles.headerTitle}>Monuments</Text>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={styles.modernCreateButton}
+                onPress={() => router.push('/create-monument')}
               >
-                <TouchableOpacity 
-                  style={[styles.monumentCard, { backgroundColor: colors.surface }]}
-                  onPress={() => router.push(`/monument/${monument.id}`)}
+                <LinearGradient
+                  colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                  style={styles.modernCreateButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
                 >
-                  <Image source={{ uri: monument.images?.[0] || 'https://via.placeholder.com/60x60' }} style={styles.monumentImage} />
-                  <View style={styles.monumentContent}>
-                    <Text style={[styles.monumentTitle, { color: colors.text }]} numberOfLines={2}>
-                      {monument.name}
-                    </Text>
-                    <Text style={[styles.monumentDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                      {monument.description}
-                    </Text>
-                    
-                    <View style={styles.monumentMeta}>
-                      <StarRating 
-                        rating={monument.rating || 4.5}
-                        size="small"
-                        showText={true}
-                      />
-                      <View style={styles.monumentDuration}>
-                        <Clock size={12} color={colors.textSecondary} strokeWidth={2} />
-                        <Text style={[styles.durationText, { color: colors.textSecondary }]}>1h30</Text>
+                  <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
+            <Search size={20} color={isDark ? '#FFFFFF' : '#000000'} strokeWidth={2} />
+            <TextInput
+              style={[styles.searchInput, { color: isDark ? '#FFFFFF' : '#000000' }]}
+              placeholder="Rechercher un monument..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'}
+            />
+            <TouchableOpacity 
+              style={styles.filterButton}
+              onPress={() => setShowFilterModal(true)}
+            >
+              <Filter size={18} color={isDark ? '#FFFFFF' : '#000000'} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Categories */}
+        <View style={styles.categoriesSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryButton,
+                  { backgroundColor: category.id === selectedCategory ? category.color : colors.surface }
+                ]}
+                onPress={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  { color: category.id === selectedCategory ? '#FFFFFF' : colors.text }
+                ]}>
+                  {category.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Results Count */}
+        <View style={styles.resultsSection}>
+          <Text style={[styles.resultsText, { color: '#FFFFFF' }]}>
+            {sortedMonuments.filter(monument => {
+              const matchesSearch = monument.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                monument.description.toLowerCase().includes(searchQuery.toLowerCase());
+              
+              const matchesCategory = !selectedCategory || selectedCategory === 'all' || monument.category === selectedCategory;
+              
+              let matchesPeriod = true;
+              if (selectedPeriod !== 'all') {
+                // Logique de filtrage par période si nécessaire
+              }
+              
+              return matchesSearch && matchesCategory && matchesPeriod;
+            }).length} {getItemType()}(s) trouvé(s)
+          </Text>
+        </View>
+
+        {/* Content */}
+        <ScrollView 
+          style={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredMonuments.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: colors.text }]}>
+                Aucun {getItemType()} trouvé
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.monumentsList}>
+              {filteredMonuments.map((monument, index) => (
+                <View 
+                  key={monument.id}
+                >
+                  <TouchableOpacity 
+                    style={[styles.monumentCard, { backgroundColor: colors.surface }]}
+                    onPress={() => router.push(`/monument/${monument.id}`)}
+                  >
+                    <Image 
+                      source={{ 
+                        uri: monument.images?.[0] || 'https://via.placeholder.com/60x60' 
+                      }} 
+                      style={styles.monumentImage} 
+                    />
+                    <View style={styles.monumentContent}>
+                      <Text style={[styles.monumentTitle, { color: colors.text }]} numberOfLines={1}>
+                        {monument.name}
+                      </Text>
+                      <Text style={[styles.monumentDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+                        {monument.description}
+                      </Text>
+                      
+                      <View style={styles.monumentMeta}>
+                        {(monument.rating || 0) > 0 && (
+                          <StarRating 
+                            rating={monument.rating || 0}
+                            size="small"
+                            showText={true}
+                          />
+                        )}
+                        <View style={styles.monumentDuration}>
+                          <Clock size={14} color="#F59E0B" strokeWidth={2} />
+                          <Text style={[styles.monumentDuration, { color: '#F59E0B' }]}>{monument.duration}</Text>
+                        </View>
+                        <View style={styles.monumentVisitors}>
+                          <Users size={14} color="#DC2626" strokeWidth={2} />
+                          <Text style={[styles.monumentVisitors, { color: '#DC2626' }]}>{monument.visitors}</Text>
+                        </View>
+                        <View style={styles.monumentLocation}>
+                          <MapPin size={12} color={colors.textSecondary} strokeWidth={2} />
+                          <Text style={[styles.locationText, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {monument.address?.split(',')[0] || 'Rouen'}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.monumentLocation}>
-                        <MapPin size={12} color={colors.textSecondary} strokeWidth={2} />
-                        <Text style={[styles.locationText, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {monument.address?.split(',')[0] || 'Rouen'}
+                      
+                      <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(monument.category || 'MONUMENT') }]}>
+                        <Text style={styles.categoryBadgeText}>
+                          {getCategoryLabel(monument.category || 'MONUMENT')}
                         </Text>
                       </View>
                     </View>
-                    
-                    <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(monument.category || 'MONUMENT') }]}>
-                      <Text style={styles.categoryBadgeText}>
-                        {getCategoryLabel(monument.category || 'MONUMENT')}
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+        
+        {/* Gradient Overlay at Bottom */}
+        <LinearGradient
+          colors={['transparent', isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(250, 250, 250, 0.95)']}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 120,
+            pointerEvents: 'none'
+          }}
+        />
+        
+        {/* Filter Modal */}
+        <Modal
+          visible={showFilterModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Filtrer par période</Text>
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={() => setShowFilterModal(false)}
+                >
+                  <LinearGradient
+                    colors={[colors.buttonPrimary, colors.buttonPrimary]}
+                    style={styles.closeButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <X size={20} color="#FFFFFF" strokeWidth={2} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.periodOptions} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                {[
+                  { id: 'all', label: 'Toutes les périodes' },
+                  { id: 'ancient', label: 'Antiquité' },
+                  { id: 'medieval', label: 'Moyen Âge' },
+                  { id: 'renaissance', label: 'Renaissance' },
+                  { id: 'modern', label: 'Époque moderne' },
+                  { id: 'contemporary', label: 'Époque contemporaine' },
+                ].map((period) => (
+                  <TouchableOpacity
+                    key={period.id}
+                    style={[
+                      styles.periodOption,
+                      { backgroundColor: colors.surface },
+                      selectedPeriod === period.id && { backgroundColor: colors.buttonPrimary }
+                    ]}
+                    onPress={() => {
+                      setSelectedPeriod(period.id);
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <View style={styles.periodOptionContent}>
+                      <Text style={[
+                        styles.periodOptionText,
+                        { color: colors.text },
+                        selectedPeriod === period.id && { color: '#FFFFFF' }
+                      ]}>
+                        {period.label}
                       </Text>
                     </View>
-                  </View>
-                  <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2} />
-                </TouchableOpacity>
-              </Animated.View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-      
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilterModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Filtrer par période</Text>
-              <TouchableOpacity 
-                style={[styles.closeButton, { backgroundColor: '#8B5CF6' }]}
-                onPress={() => setShowFilterModal(false)}
-              >
-                <X size={20} color="#FFFFFF" strokeWidth={2} />
-              </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-            
-            <ScrollView style={styles.periodOptions} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-              {[
-                { id: 'all', label: 'Toutes les périodes' },
-                { id: 'ancient', label: 'Antiquité' },
-                { id: 'medieval', label: 'Moyen Âge' },
-                { id: 'renaissance', label: 'Renaissance' },
-                { id: 'modern', label: 'Époque moderne' },
-                { id: 'contemporary', label: 'Époque contemporaine' },
-              ].map((period) => (
-                <TouchableOpacity
-                  key={period.id}
-                  style={[
-                    styles.periodOption,
-                    { backgroundColor: colors.background },
-                    selectedPeriod === period.id && { backgroundColor: '#8B5CF6' }
-                  ]}
-                  onPress={() => {
-                    setSelectedPeriod(period.id);
-                    setShowFilterModal(false);
-                  }}
-                >
-                  <View style={styles.periodOptionContent}>
-                    <Text style={[
-                      styles.periodOptionText,
-                      { color: colors.text },
-                      selectedPeriod === period.id && { color: '#FFFFFF' }
-                    ]}>
-                      {period.label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
-        </View>
-      </Modal>
-      
-      <FloatingMenu />
-    </SafeAreaView>
+        </Modal>
+        
+        <FloatingMenu />
+      </View>
+    </View>
   );
 }
 
@@ -383,9 +434,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  darkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  safeArea: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 20,
   },
   headerTop: {
@@ -397,6 +467,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 32,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   modernCreateButton: {
     width: 48,
@@ -404,11 +475,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
+  },
+  modernCreateButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchSection: {
     paddingHorizontal: 20,
@@ -463,26 +541,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   monumentCard: {
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+    height: 140,
   },
   monumentImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 10,
+    width: 120,
+    height: '100%',
     resizeMode: 'cover',
   },
   monumentContent: {
     flex: 1,
     gap: 6,
+    padding: 12,
+    justifyContent: 'center',
   },
   monumentTitle: {
     fontSize: 16,
@@ -513,10 +591,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  durationText: {
     fontSize: 12,
     fontWeight: '500',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  monumentVisitors: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#DC2626',
+    marginLeft: 4,
   },
   monumentLocation: {
     flexDirection: 'row',
@@ -542,7 +629,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   bottomSpacing: {
-    height: 100,
+    height: 140,
   },
   loadingContainer: {
     flex: 1,
@@ -579,9 +666,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  closeButtonGradient: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

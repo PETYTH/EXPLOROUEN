@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Cookie, Shield, X } from 'lucide-react-native';
+import { Cookie, Shield, X, Clock, Users } from 'lucide-react-native';
 
 interface CookieConsentProps {
   onAccept?: () => void;
@@ -113,7 +113,7 @@ export default function CookieConsent({ onAccept, onDecline }: CookieConsentProp
         <View style={[styles.container, { backgroundColor: colors.surface }]}>
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Cookie size={24} color="#8B5CF6" strokeWidth={2} />
+              <Cookie size={20} color="#6366F1" strokeWidth={2} />
             </View>
             <Text style={[styles.title, { color: colors.text }]}>
               Gestion des cookies
@@ -143,7 +143,7 @@ export default function CookieConsent({ onAccept, onDecline }: CookieConsentProp
               style={styles.detailsButton}
               onPress={() => setShowDetails(!showDetails)}
             >
-              <Text style={[styles.detailsButtonText, { color: '#8B5CF6' }]}>
+              <Text style={[styles.detailsButtonText, { color: '#6366F1' }]}>
                 {showDetails ? 'Masquer les détails' : 'Détails des cookies et droits'}
               </Text>
             </TouchableOpacity>
@@ -168,6 +168,10 @@ export default function CookieConsent({ onAccept, onDecline }: CookieConsentProp
                     Collecte anonymisée des statistiques d'usage pour améliorer l'application. 
                     Données traitées : pages visitées, temps de session, interactions.
                   </Text>
+                  <Clock size={14} color="#F59E0B" strokeWidth={2} />
+                  <Text style={[styles.cookieExpiry, { color: '#F59E0B' }]}>Expire dans 30 jours</Text>
+                  <Users size={14} color="#DC2626" strokeWidth={2} />
+                  <Text style={[styles.cookieUsage, { color: '#DC2626' }]}>Usage analytique</Text>
                 </View>
 
                 <View style={styles.cookieCategory}>
@@ -195,7 +199,7 @@ export default function CookieConsent({ onAccept, onDecline }: CookieConsentProp
             )}
 
             <View style={styles.privacyNote}>
-              <Shield size={16} color="#8B5CF6" strokeWidth={2} />
+              <Shield size={20} color="#6366F1" strokeWidth={2} />
               <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
                 Données chiffrées et sécurisées • Conformité RGPD • Pas de vente à des tiers
               </Text>
@@ -218,7 +222,7 @@ export default function CookieConsent({ onAccept, onDecline }: CookieConsentProp
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.acceptButton}
+              style={[styles.acceptButton, { backgroundColor: '#6366F1' }]}
               onPress={handleAccept}
             >
               <Text style={styles.acceptButtonText}>
@@ -246,7 +250,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     width: '100%',
     height: 600,
-    shadowColor: '#000',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -262,7 +266,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -306,13 +310,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  cookieExpiry: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  cookieUsage: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#DC2626',
+    marginLeft: 4,
+  },
   privacyNote: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 24,
     padding: 12,
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
     borderRadius: 8,
   },
   privacyText: {
@@ -337,11 +353,10 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     flex: 1,
-    backgroundColor: '#8B5CF6',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -357,7 +372,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginVertical: 16,
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(99, 102, 241, 0.2)',
   },
   sectionTitle: {
     fontSize: 16,

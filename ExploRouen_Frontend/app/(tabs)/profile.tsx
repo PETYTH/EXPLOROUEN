@@ -15,11 +15,12 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { Star, Award, Camera, Bell, Shield, MessageCircle, HelpCircle, LogOut, Trash2, Target, MapPin, Trophy, CheckCircle, Activity, TrendingUp, X, Images } from 'lucide-react-native';
+import { Star, Award, Camera, Bell, Shield, MessageCircle, HelpCircle, LogOut, Trash2, Target, MapPin, Trophy, CheckCircle, Activity, TrendingUp, X, Images, Calendar as CalendarIcon, Clock, Users, ChevronRight } from 'lucide-react-native';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ApiService from '@/services/api';
 
 export default function ProfileScreen() {
   const { user } = useUser();
@@ -62,6 +63,11 @@ export default function ProfileScreen() {
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [plannedVisits, setPlannedVisits] = useState<any[]>([]);
+  const [isLoadingVisits, setIsLoadingVisits] = useState(false);
 
   // Fonction pour récupérer les statistiques utilisateur depuis le backend
   const fetchUserStats = async () => {
@@ -163,6 +169,7 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -186,9 +193,110 @@ export default function ProfileScreen() {
     { id: '5', title: 'Actif', description: userStats.completedActivities + ' activités terminées', icon: CheckCircle, unlocked: userStats.completedActivities >= 15 },
   ];
 
+  // Fonction pour récupérer les visites planifiées
+  const fetchPlannedVisits = async () => {
+    if (!user) return;
+    
+    setIsLoadingVisits(true);
+    try {
+      const token = await getToken();
+      if (!token) {
+        console.log('❌ Pas de token pour récupérer les visites');
+        return;
+      }
+
+      const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+      console.log('📡 Récupération des visites planifiées:', `${API_URL}/monuments/planned-visits`);
+      
+      const response = await fetch(`${API_URL}/monuments/planned-visits`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📡 Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Visites planifiées récupérées:', data.data?.length || 0, 'visite(s)');
+        console.log('📋 Données:', JSON.stringify(data.data, null, 2));
+        setPlannedVisits(data.data || []);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erreur API:', response.status, errorData);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching planned visits:', error);
+    } finally {
+      setIsLoadingVisits(false);
+    }
+  };
+
+  // Fonction pour supprimer une photo de la galerie
+  const handleDeletePhoto = async (photoId: string) => {
+    Alert.alert(
+      'Supprimer la photo',
+      'Êtes-vous sûr de vouloir supprimer cette photo ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Retirer la photo de la liste locale
+              const updatedPhotos = monumentPhotos.filter(p => p.id !== photoId);
+              setMonumentPhotos(updatedPhotos);
+              
+              // Sauvegarder la liste mise à jour dans AsyncStorage
+              await AsyncStorage.setItem('monument_photos', JSON.stringify(updatedPhotos));
+              
+              Alert.alert('Succès', 'Photo supprimée avec succès');
+            } catch (error) {
+              console.error('Error deleting photo:', error);
+              Alert.alert('Erreur', 'Une erreur est survenue');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const cancelVisit = async (visitId: string) => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const API_URL = process.env.EXPO_PUBLIC_URL_BACKEND || 'http://localhost:5000/api';
+      const response = await fetch(`${API_URL}/monuments/planned-visits/${visitId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Supprimer l'état planifié du AsyncStorage
+        if (data.data?.monumentId) {
+          await AsyncStorage.removeItem(`planned_${data.data.monumentId}`);
+        }
+        Alert.alert('Succès', 'Visite annulée');
+        fetchPlannedVisits();
+      }
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible d\'annuler la visite');
+    }
+  };
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    fetchUserStats().finally(() => setRefreshing(false));
+    Promise.all([
+      fetchUserStats(),
+      fetchPlannedVisits()
+    ]).finally(() => setRefreshing(false));
   }, [user]);
 
   // Fonction pour charger les photos des monuments
@@ -216,6 +324,24 @@ export default function ProfileScreen() {
     }
   };
 
+  // Fonction pour charger les activités de l'utilisateur
+  const loadUserActivities = async () => {
+    if (!user) return;
+    
+    setIsLoadingActivities(true);
+    try {
+      const token = await getToken();
+      if (token) {
+        const activities = await ApiService.getUserActivities(token);
+        setUserActivities(activities);
+      }
+    } catch (error) {
+      console.error('Erreur chargement activités:', error);
+    } finally {
+      setIsLoadingActivities(false);
+    }
+  };
+
   // Fonction pour charger la note de l'app
   const loadAppRating = async () => {
     try {
@@ -233,6 +359,8 @@ export default function ProfileScreen() {
     fetchUserStats();
     loadMonumentPhotos();
     loadAppRating();
+    loadUserActivities();
+    fetchPlannedVisits();
   }, [user]);
 
   const displayUser = user || {
@@ -285,7 +413,7 @@ export default function ProfileScreen() {
           <View style={styles.xpProgressContainer}>
             <View style={[styles.xpProgressBar, { backgroundColor: colors.border }]}>
               <LinearGradient
-                colors={['#A855F7', '#EC4899']}
+                colors={['#1E40AF', '#3B82F6']}
                 style={[
                   styles.xpProgressFill,
                   { 
@@ -302,25 +430,25 @@ export default function ProfileScreen() {
         {/* Stats Grid */}
         {isLoadingStats ? (
           <View style={[styles.loadingContainer, { backgroundColor: colors.surface }]}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
+            <ActivityIndicator size="large" color="#1E40AF" />
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Chargement des statistiques...</Text>
           </View>
         ) : (
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-              <Activity size={20} color="#A855F7" strokeWidth={2} />
+              <Activity size={20} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: colors.text }]}>{userStats.totalActivities}</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Inscrites</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Activités inscrites</Text>
             </View>
             
             <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-              <MapPin size={20} color="#EC4899" strokeWidth={2} />
+              <MapPin size={20} color="#DC2626" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: colors.text }]}>{userStats.monumentsVisited}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Monuments</Text>
             </View>
             
             <View style={[styles.statCard, { backgroundColor: colors.surface }]}>
-              <Target size={20} color="#10B981" strokeWidth={2} />
+              <Target size={20} color="#F59E0B" strokeWidth={2} />
               <Text style={[styles.statNumber, { color: colors.text }]}>{userStats.easterEggs}</Text>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Œufs trouvés</Text>
             </View>
@@ -338,7 +466,7 @@ export default function ProfileScreen() {
           <View style={styles.gallerySectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Ma Galerie</Text>
             <View style={styles.galleryStats}>
-              <Images size={16} color="#8B5CF6" strokeWidth={2} />
+              <Images size={16} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.galleryStatsText, { color: colors.textSecondary }]}>
                 {monumentPhotos.length} photo{monumentPhotos.length > 1 ? 's' : ''}
               </Text>
@@ -357,6 +485,12 @@ export default function ProfileScreen() {
                   }}
                 >
                   <Image source={{ uri: photo.uri }} style={styles.galleryPhoto} />
+                  <TouchableOpacity 
+                    style={styles.deletePhotoButton}
+                    onPress={() => handleDeletePhoto(photo.id)}
+                  >
+                    <Trash2 size={16} color="#FFFFFF" strokeWidth={2} />
+                  </TouchableOpacity>
                   <View style={styles.galleryPhotoOverlay}>
                     <Text style={styles.galleryPhotoTitle} numberOfLines={2}>
                       {photo.monumentName}
@@ -381,6 +515,264 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Historique des activités */}
+        <View style={styles.historySection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Historique des activités</Text>
+            {userActivities.length > 0 && (
+              <TouchableOpacity onPress={() => router.push('/activities')}>
+                <Text style={[styles.viewAllText, { color: '#1E40AF' }]}>Voir tout</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {isLoadingActivities ? (
+            <View style={[styles.loadingActivityContainer, { backgroundColor: colors.surface }]}>
+              <ActivityIndicator size="small" color="#1E40AF" />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Chargement...</Text>
+            </View>
+          ) : userActivities.length > 0 ? (
+            <View style={styles.activitiesList}>
+              {userActivities.slice(0, 3).map((activity) => {
+                const activityDate = new Date(activity.startDate);
+                const isPast = activityDate < new Date();
+                
+                return (
+                  <TouchableOpacity
+                    key={activity.id}
+                    style={[styles.activityHistoryCard, { backgroundColor: colors.surface }]}
+                    onPress={() => router.push(`/activity/${activity.id}`)}
+                  >
+                    <View style={styles.activityHistoryContent}>
+                      <View style={styles.activityHistoryHeader}>
+                        <Text style={[styles.activityHistoryTitle, { color: colors.text }]} numberOfLines={1}>
+                          {activity.title}
+                        </Text>
+                        {isPast && (
+                          <View style={styles.completedBadge}>
+                            <CheckCircle size={14} color="#10B981" strokeWidth={2} />
+                            <Text style={styles.completedText}>Terminée</Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      <View style={styles.activityHistoryMeta}>
+                        <View style={styles.activityHistoryMetaItem}>
+                          <CalendarIcon size={14} color={colors.textSecondary} strokeWidth={2} />
+                          <Text style={[styles.activityHistoryMetaText, { color: colors.textSecondary }]}>
+                            {activityDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </Text>
+                        </View>
+                        <View style={styles.activityHistoryMetaItem}>
+                          <Clock size={14} color={colors.textSecondary} strokeWidth={2} />
+                          <Text style={[styles.activityHistoryMetaText, { color: colors.textSecondary }]}>
+                            {activity.duration || '1h'}
+                          </Text>
+                        </View>
+                        {activity.participantCount && (
+                          <View style={styles.activityHistoryMetaItem}>
+                            <Users size={14} color={colors.textSecondary} strokeWidth={2} />
+                            <Text style={[styles.activityHistoryMetaText, { color: colors.textSecondary }]}>
+                              {activity.participantCount}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    
+                    <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+              <Activity size={32} color={colors.textSecondary} strokeWidth={1.5} />
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                Aucune activité
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+                Inscrivez-vous à des activités pour les voir ici !
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Calendrier des activités */}
+        <View style={styles.calendarSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Agenda</Text>
+            <View style={styles.monthSelector}>
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(selectedMonth);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setSelectedMonth(newDate);
+                }}
+                style={styles.monthButton}
+              >
+                <Text style={[styles.monthButtonText, { color: '#1E40AF' }]}>◀</Text>
+              </TouchableOpacity>
+              
+              <Text style={[styles.currentMonth, { color: colors.text }]}>
+                {selectedMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+              </Text>
+              
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(selectedMonth);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setSelectedMonth(newDate);
+                }}
+                style={styles.monthButton}
+              >
+                <Text style={[styles.monthButtonText, { color: '#1E40AF' }]}>▶</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {userActivities.filter(activity => {
+            const activityDate = new Date(activity.startDate);
+            return activityDate.getMonth() === selectedMonth.getMonth() &&
+                   activityDate.getFullYear() === selectedMonth.getFullYear() &&
+                   activityDate >= new Date();
+          }).length > 0 ? (
+            <View style={styles.calendarList}>
+              {userActivities
+                .filter(activity => {
+                  const activityDate = new Date(activity.startDate);
+                  return activityDate.getMonth() === selectedMonth.getMonth() &&
+                         activityDate.getFullYear() === selectedMonth.getFullYear() &&
+                         activityDate >= new Date();
+                })
+                .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                .map((activity) => {
+                  const activityDate = new Date(activity.startDate);
+                  const dayOfWeek = activityDate.toLocaleDateString('fr-FR', { weekday: 'short' });
+                  const dayNumber = activityDate.getDate();
+                  
+                  return (
+                    <TouchableOpacity
+                      key={activity.id}
+                      style={[styles.calendarEventCard, { backgroundColor: colors.surface }]}
+                      onPress={() => router.push(`/activity/${activity.id}`)}
+                    >
+                      <View style={styles.calendarDateBadge}>
+                        <Text style={styles.calendarDayOfWeek}>{dayOfWeek}</Text>
+                        <Text style={styles.calendarDayNumber}>{dayNumber}</Text>
+                      </View>
+                      
+                      <View style={styles.calendarEventContent}>
+                        <Text style={[styles.calendarEventTitle, { color: colors.text }]} numberOfLines={1}>
+                          {activity.title}
+                        </Text>
+                        <View style={styles.calendarEventMeta}>
+                          <Clock size={12} color={colors.textSecondary} strokeWidth={2} />
+                          <Text style={[styles.calendarEventTime, { color: colors.textSecondary }]}>
+                            {activityDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                          {activity.participantCount && (
+                            <>
+                              <Text style={[styles.calendarEventSeparator, { color: colors.textSecondary }]}>•</Text>
+                              <Users size={12} color={colors.textSecondary} strokeWidth={2} />
+                              <Text style={[styles.calendarEventParticipants, { color: colors.textSecondary }]}>
+                                {activity.participantCount}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                      
+                      <ChevronRight size={18} color={colors.textSecondary} strokeWidth={2} />
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
+          ) : (
+            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+              <CalendarIcon size={32} color={colors.textSecondary} strokeWidth={1.5} />
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                Aucune activité ce mois-ci
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+                Explorez les activités et inscrivez-vous !
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Planned Visits */}
+        <View style={styles.plannedVisitsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Visites planifiées</Text>
+            {plannedVisits.length > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.buttonPrimary }]}>
+                <Text style={styles.badgeText}>{plannedVisits.length}</Text>
+              </View>
+            )}
+          </View>
+
+          {isLoadingVisits ? (
+            <ActivityIndicator size="small" color={colors.buttonPrimary} style={{ marginTop: 16 }} />
+          ) : plannedVisits.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.plannedVisitsScroll}>
+              {plannedVisits.map((visit) => {
+                const visitDate = new Date(visit.visitDate);
+                return (
+                  <View key={visit.id} style={[styles.plannedVisitCard, { backgroundColor: colors.surface }]}>
+                    <Image 
+                      source={{ uri: visit.monument.images?.[0] || 'https://via.placeholder.com/150' }} 
+                      style={styles.plannedVisitImage} 
+                    />
+                    <View style={styles.plannedVisitContent}>
+                      <Text style={[styles.plannedVisitName, { color: colors.text }]} numberOfLines={1}>
+                        {visit.monument.name}
+                      </Text>
+                      <View style={styles.plannedVisitDateRow}>
+                        <CalendarIcon size={14} color={colors.textSecondary} />
+                        <Text style={[styles.plannedVisitDate, { color: colors.textSecondary }]}>
+                          {visitDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        </Text>
+                      </View>
+                      <View style={styles.plannedVisitTimeRow}>
+                        <Clock size={14} color={colors.textSecondary} />
+                        <Text style={[styles.plannedVisitTime, { color: colors.textSecondary }]}>
+                          {visit.timeSlot}
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={[styles.cancelButton, { borderColor: colors.border }]}
+                        onPress={() => {
+                          Alert.alert(
+                            'Annuler la visite',
+                            `Voulez-vous vraiment annuler votre visite de ${visit.monument.name} ?`,
+                            [
+                              { text: 'Non', style: 'cancel' },
+                              { text: 'Oui', onPress: () => cancelVisit(visit.id), style: 'destructive' }
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Annuler</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+              <CalendarIcon size={32} color={colors.textSecondary} strokeWidth={1.5} />
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+                Aucune visite planifiée
+              </Text>
+              <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+                Planifiez vos visites depuis les pages des monuments
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* Achievements */}
         <View style={styles.achievementsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Succès</Text>
@@ -392,7 +784,7 @@ export default function ProfileScreen() {
                 !achievement.unlocked && styles.achievementLocked
               ]}>
                 <View style={styles.achievementIconContainer}>
-                  <achievement.icon size={24} color={achievement.unlocked ? "#8B5CF6" : "#6B7280"} strokeWidth={2} />
+                  <achievement.icon size={24} color={achievement.unlocked ? "#1E40AF" : "#6B7280"} strokeWidth={2} />
                 </View>
                 <View style={styles.achievementInfo}>
                   <Text style={[
@@ -426,21 +818,27 @@ export default function ProfileScreen() {
           
           <View style={[styles.settingsMenu, { backgroundColor: colors.surface }]}>
             <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/notifications')}>
-              <Bell size={20} color="#8B5CF6" strokeWidth={2} />
+              <Bell size={20} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.settingText, { color: colors.text }]}>Notifications</Text>
               <TouchableOpacity 
-                style={[styles.settingToggle, { backgroundColor: notificationsEnabled ? '#8B5CF6' : '#374151' }]}
+                style={styles.settingToggle}
                 onPress={() => {
                   const newState = !notificationsEnabled;
                   setNotificationsEnabled(newState);
-                  Alert.alert(
-                    'Notifications',
-                    newState ? 'Les notifications ont été activées.' : 'Les notifications ont été désactivées.',
-                    [{ text: 'OK' }]
-                  );
+                  // Ici vous pourriez sauvegarder la préférence
                 }}
               >
-                <View style={[styles.toggleActive, { alignSelf: notificationsEnabled ? 'flex-end' : 'flex-start' }]} />
+                <LinearGradient
+                  colors={notificationsEnabled ? ['#1E40AF', '#3B82F6'] : ['#374151', '#4B5563']}
+                  style={styles.settingToggleGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[
+                    styles.settingToggleThumb,
+                    { transform: [{ translateX: notificationsEnabled ? 20 : 2 }] }
+                  ]} />
+                </LinearGradient>
               </TouchableOpacity>
             </TouchableOpacity>
             
@@ -458,15 +856,15 @@ export default function ProfileScreen() {
                 ]
               );
             }}>
-              <Star size={20} color="#8B5CF6" strokeWidth={2} />
+              <Star size={20} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.settingText, { color: colors.text }]}>Noter l'app</Text>
               <View style={styles.starsContainer}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star 
                     key={star} 
                     size={16} 
-                    color={star <= appRating ? "#8B5CF6" : "#6B7280"} 
-                    fill={star <= appRating ? "#8B5CF6" : "transparent"}
+                    color={star <= appRating ? "#1E40AF" : "#6B7280"} 
+                    fill={star <= appRating ? "#1E40AF" : "transparent"}
                     strokeWidth={1}
                   />
                 ))}
@@ -474,13 +872,13 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/contact')}>
-              <MessageCircle size={20} color="#8B5CF6" strokeWidth={2} />
+              <MessageCircle size={20} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.settingText, { color: colors.text }]}>Nous contacter</Text>
               <HelpCircle size={16} color={colors.textSecondary} strokeWidth={2} />
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/legal')}>
-              <Shield size={20} color="#8B5CF6" strokeWidth={2} />
+              <Shield size={20} color="#1E40AF" strokeWidth={2} />
               <Text style={[styles.settingText, { color: colors.text }]}>Mentions légales</Text>
               <HelpCircle size={16} color={colors.textSecondary} strokeWidth={2} />
             </TouchableOpacity>
@@ -552,16 +950,16 @@ export default function ProfileScreen() {
                     ]
                   );
                 }}>
-                  <LogOut size={20} color="#8B5CF6" strokeWidth={2} />
-                  <Text style={[styles.settingText, { color: '#8B5CF6' }]}>Déconnexion</Text>
+                  <LogOut size={20} color="#1E40AF" strokeWidth={2} />
+                  <Text style={[styles.settingText, { color: '#1E40AF' }]}>Déconnexion</Text>
                 </TouchableOpacity>
               </>
             )}
             
             {!user && (
               <TouchableOpacity style={styles.settingItem} onPress={() => router.push('/(auth)/auth')}>
-                <LogOut size={20} color="#8B5CF6" strokeWidth={2} />
-                <Text style={[styles.settingText, { color: '#8B5CF6' }]}>Se connecter</Text>
+                <LogOut size={20} color="#1E40AF" strokeWidth={2} />
+                <Text style={[styles.settingText, { color: '#1E40AF' }]}>Se connecter</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -569,7 +967,7 @@ export default function ProfileScreen() {
 
         {/* Version de l'app */}
         <View style={styles.versionContainer}>
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.2.3 (Build 42)</Text>
+          <Text style={[styles.versionText, { color: colors.textSecondary }]}>Version 1.0</Text>
           <Text style={[styles.copyrightText, { color: colors.textSecondary }]}>© 2025 ExploRouen</Text>
         </View>
 
@@ -638,7 +1036,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#8B5CF6',
+    shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -668,7 +1066,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: '#A855F7',
+    borderColor: '#1E40AF',
   },
   editAvatarButton: {
     position: 'absolute',
@@ -677,7 +1075,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#A855F7',
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -701,7 +1099,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#A855F7',
+    color: '#1E40AF',
   },
   xpContainer: {
     backgroundColor: '#374151',
@@ -771,7 +1169,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -812,8 +1210,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#374151',
     gap: 12,
   },
   settingText: {
@@ -829,16 +1225,26 @@ const styles = StyleSheet.create({
     width: 44,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#A855F7',
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
-  toggleActive: {
+  settingToggleGradient: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  settingToggleThumb: {
     width: 20,
     height: 20,
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    alignSelf: 'flex-end',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   authPrompt: {
     flex: 1,
@@ -914,6 +1320,23 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  deletePhotoButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   galleryPhotoOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -938,7 +1361,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(99, 102, 241, 0.2)',
     borderStyle: 'dashed',
   },
   emptyGalleryText: {
@@ -1010,5 +1433,256 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  // History Section
+  historySection: {
+    marginBottom: 24,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingActivityContainer: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  activitiesList: {
+    gap: 12,
+  },
+  activityHistoryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  activityHistoryContent: {
+    flex: 1,
+    gap: 8,
+  },
+  activityHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  activityHistoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    flex: 1,
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#D1FAE5',
+    borderRadius: 8,
+  },
+  completedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  activityHistoryMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityHistoryMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activityHistoryMetaText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  emptyState: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  // Calendar Section
+  calendarSection: {
+    marginBottom: 24,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  monthButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthButtonText: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  currentMonth: {
+    fontSize: 15,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  calendarList: {
+    gap: 12,
+  },
+  calendarEventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    gap: 16,
+  },
+  calendarDateBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: '#1E40AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  calendarDayOfWeek: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  calendarDayNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  calendarEventContent: {
+    flex: 1,
+    gap: 6,
+  },
+  calendarEventTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  calendarEventMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  calendarEventTime: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  calendarEventSeparator: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calendarEventParticipants: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  // Planned Visits
+  plannedVisitsSection: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  plannedVisitsScroll: {
+    marginTop: 8,
+  },
+  plannedVisitCard: {
+    width: 200,
+    borderRadius: 16,
+    marginRight: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  plannedVisitImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  plannedVisitContent: {
+    padding: 12,
+  },
+  plannedVisitName: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  plannedVisitDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  plannedVisitDate: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  plannedVisitTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  plannedVisitTime: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  cancelButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
