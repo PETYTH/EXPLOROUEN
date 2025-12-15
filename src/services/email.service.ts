@@ -3,5 +3,3 @@ export class EmailService {
   static async sendEmail() {}
   static async sendWelcomeEmail(to: string, name: string) {}
 }
-
-export default EmailService;
