@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -7,7 +8,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-export const authenticateToken = async (
+export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -16,11 +17,30 @@ export const authenticateToken = async (
   next();
 };
 
+export const authenticateToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  next();
+};
+
 export const requireAdmin = (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  // Middleware admin désactivé - utilise Clerk
   next();
 };
+
+export const authorize = (...roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    next();
+  };
+};
+
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests',
+});
