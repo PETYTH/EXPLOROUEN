@@ -33,7 +33,7 @@ export const requireAdmin = (
   next();
 };
 
-export const authorize = (...roles: string[]) => {
+export const authorize = (roles: string | string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     next();
   };

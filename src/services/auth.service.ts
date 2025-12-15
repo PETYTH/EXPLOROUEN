@@ -1,9 +1,17 @@
 // Ce service d'authentification est désactivé car l'application utilise Clerk
 // pour l'authentification. Toutes les fonctionnalités d'auth sont gérées par Clerk.
 
-export class AuthService {}
+export class AuthService {
+  async register(data: any) { return {}; }
+  async login(data: any) { return {}; }
+  async refreshToken(token: string) { return {}; }
+  async logout(token: string) { return {}; }
+  async forgotPassword(email: string) { return {}; }
+  async verifyResetCode(email: string, code: string) { return {}; }
+  async resetPassword(email: string, code: string, password: string) { return {}; }
+}
 
-export default {};
+export default AuthService;
 
 /*
 import bcrypt from 'bcryptjs';
