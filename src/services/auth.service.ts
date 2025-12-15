@@ -2,13 +2,13 @@
 // pour l'authentification. Toutes les fonctionnalités d'auth sont gérées par Clerk.
 
 export class AuthService {
-  async register(data: any) { return {}; }
-  async login(data: any) { return {}; }
-  async refreshToken(token: string) { return {}; }
-  async logout(token: string) { return {}; }
-  async forgotPassword(email: string) { return {}; }
-  async verifyResetCode(email: string, code: string) { return {}; }
-  async resetPassword(email: string, code: string, password: string) { return {}; }
+  static async register(data: any) { return {}; }
+  static async login(data: any) { return {}; }
+  static async refreshToken(token: string) { return {}; }
+  static async logout(token: string) { return {}; }
+  static async forgotPassword(email: string) { return {}; }
+  static async verifyResetCode(email: string, code: string) { return {}; }
+  static async resetPassword(email: string, code: string, password: string) { return {}; }
 }
 
 export default AuthService;
