@@ -1,6 +1,8 @@
 // Ce service d'authentification est désactivé car l'application utilise Clerk
 // pour l'authentification. Toutes les fonctionnalités d'auth sont gérées par Clerk.
 
+export default {};
+
 /*
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
