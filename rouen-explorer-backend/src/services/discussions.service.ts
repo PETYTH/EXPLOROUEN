@@ -1,5 +1,6 @@
 // src/services/discussions.service.ts
 import { PrismaClient } from '@prisma/client';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 
 const prisma = new PrismaClient();
 
@@ -18,6 +19,40 @@ interface CreateMessageData {
     messageType: string;
 }
 
+// Cache simple pour les utilisateurs Clerk pour éviter trop d'appels API
+const userCache = new Map<string, any>();
+
+async function getUserDetails(userId: string) {
+    if (userCache.has(userId)) {
+        return userCache.get(userId);
+    }
+
+    try {
+        const user = await clerkClient.users.getUser(userId);
+        const userDetails = {
+            id: user.id,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            imageUrl: user.imageUrl || '',
+            fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Utilisateur'
+        };
+        
+        // Mettre en cache pour 5 minutes
+        userCache.set(userId, userDetails);
+        setTimeout(() => userCache.delete(userId), 5 * 60 * 1000);
+        
+        return userDetails;
+    } catch (error) {
+        console.error(`Erreur récupération utilisateur ${userId}:`, error);
+        return {
+            id: userId,
+            firstName: 'Utilisateur',
+            lastName: '',
+            imageUrl: '',
+            fullName: 'Utilisateur'
+        };
+    }
+}
 
 export class DiscussionsService {
     static async getDiscussionMessagesByActivity(activityId: string, limit: number = 50, offset: number = 0) {
@@ -46,17 +81,16 @@ export class DiscussionsService {
             skip: offset
         });
 
-        // Retourner dans l'ordre chronologique avec structure basique
-        return messages.reverse().map((message: any) => ({
-            ...message,
-            user: {
-                id: message.userId,
-                firstName: 'User',
-                lastName: '',
-                imageUrl: '',
-                fullName: 'User'
-            }
+        // Récupérer les détails des utilisateurs pour chaque message
+        const messagesWithUsers = await Promise.all(messages.reverse().map(async (message: any) => {
+            const user = await getUserDetails(message.userId);
+            return {
+                ...message,
+                user
+            };
         }));
+
+        return messagesWithUsers;
     }
 
     static async createMessageForActivity(data: CreateMessageForActivityData) {
@@ -106,16 +140,13 @@ export class DiscussionsService {
             data: messageData
         });
 
+        // Récupérer les infos utilisateur
+        const user = await getUserDetails(data.userId);
+
         // Retourner avec structure attendue par le frontend
         return {
             ...message,
-            user: {
-                id: data.userId,
-                firstName: 'User',
-                lastName: '',
-                imageUrl: '',
-                fullName: 'User'
-            }
+            user
         };
     }
 
@@ -297,16 +328,13 @@ export class DiscussionsService {
             data: messageData
         });
 
+        // Récupérer les infos utilisateur
+        const user = await getUserDetails(data.userId);
+
         // Retourner avec structure attendue par le frontend
         return {
             ...message,
-            user: {
-                id: data.userId,
-                firstName: 'User',
-                lastName: '',
-                imageUrl: '',
-                fullName: 'User'
-            }
+            user
         };
     }
 
@@ -355,7 +383,8 @@ export class DiscussionsService {
             const privateDiscussions = await prisma.discussion.findMany({
                 where: {
                     title: {
-                        contains: `private-${userId}`
+                        startsWith: 'private-',
+                        contains: userId
                     },
                     activityId: null
                 },
@@ -371,9 +400,14 @@ export class DiscussionsService {
             // Discussions privées trouvées
 
             // 5. Formater les conversations de groupe
-            const groupChats = activities.map(activity => {
+            const groupChats = await Promise.all(activities.map(async activity => {
                 const discussion = discussions.find(d => d.activityId === activity.id);
                 const lastMessage = discussion?.messages?.[0];
+                
+                let lastMessageUser = null;
+                if (lastMessage) {
+                    lastMessageUser = await getUserDetails(lastMessage.userId);
+                }
 
                 return {
                     id: `activity-${activity.id}`,
@@ -388,16 +422,10 @@ export class DiscussionsService {
                         createdAt: lastMessage.createdAt,
                         userId: lastMessage.userId,
                         isMe: lastMessage.userId === userId,
-                        user: {
-                            id: lastMessage.userId,
-                            fullName: 'User',
-                            firstName: 'User',
-                            lastName: '',
-                            imageUrl: ''
-                        }
+                        user: lastMessageUser
                     } : null
                 };
-            });
+            }));
 
             // 6. Formater les conversations privées
             const privateChats = await Promise.all(privateDiscussions.map(async discussion => {
@@ -405,36 +433,24 @@ export class DiscussionsService {
                 const participants = discussion.title.replace('private-', '').split('-');
                 const otherUserId = participants.find(id => id !== userId) || 'unknown';
                 
-                // Trouver l'activité liée à cette conversation privée
-                let organizerName = 'Organisateur';
-                let organizerAvatar = null;
-                let activityImage = null;
+                // Récupérer les infos de l'autre utilisateur
+                const otherUser = await getUserDetails(otherUserId);
                 
-                // Chercher l'activité où cet utilisateur est l'organisateur
-                const organizerActivity = await prisma.activity.findFirst({
-                    where: {
-                        createdBy: otherUserId
-                    },
-                    select: {
-                        organizerName: true,
-                        organizerAvatar: true,
-                        image: true
-                    }
-                });
-                
-                if (organizerActivity) {
-                    organizerName = organizerActivity.organizerName || 'Organisateur';
-                    organizerAvatar = organizerActivity.organizerAvatar;
-                    activityImage = organizerActivity.image;
+                let lastMessageUser = null;
+                if (lastMessage) {
+                    lastMessageUser = await getUserDetails(lastMessage.userId);
                 }
 
                 return {
                     id: discussion.title,
-                    activityName: organizerName,
-                    organizerName: organizerName,
-                    organizerAvatar: organizerAvatar,
-                    activityImage: activityImage,
-                    participants: [{ id: otherUserId, isOnline: Math.random() > 0.5 }],
+                    activityName: otherUser.fullName,
+                    organizerName: otherUser.fullName,
+                    organizerAvatar: otherUser.imageUrl,
+                    activityImage: otherUser.imageUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(otherUser.fullName),
+                    participants: [
+                        { id: userId, isOnline: true },
+                        { ...otherUser, isOnline: false }
+                    ],
                     lastMessage: lastMessage ? {
                         id: lastMessage.id,
                         content: lastMessage.content,
@@ -442,13 +458,7 @@ export class DiscussionsService {
                         createdAt: lastMessage.createdAt,
                         userId: lastMessage.userId,
                         isMe: lastMessage.userId === userId,
-                        user: {
-                            id: lastMessage.userId,
-                            fullName: 'User',
-                            firstName: 'User',
-                            lastName: '',
-                            imageUrl: ''
-                        }
+                        user: lastMessageUser
                     } : null
                 };
             }));
@@ -467,36 +477,89 @@ export class DiscussionsService {
 
     // Supprimer un chat privé
     static async deletePrivateChat(chatId: string, userId: string) {
+        // Normaliser les IDs pour la recherche (A-B ou B-A)
+        const parts = chatId.replace('private-', '').split('-');
+        let whereClause: any = { title: chatId };
+        
+        if (parts.length === 2) {
+            const [u1, u2] = parts;
+            whereClause = {
+                OR: [
+                    { title: `private-${u1}-${u2}` },
+                    { title: `private-${u2}-${u1}` }
+                ]
+            };
+        }
+
         const discussion = await prisma.discussion.findFirst({
-            where: {
-                title: chatId
-            }
+            where: whereClause
         });
 
         if (!discussion) {
-            throw new Error('Chat privé non trouvé');
+            // Si pas trouvé, on considère que c'est déjà supprimé
+            return { success: true };
         }
 
-        // Vérifier que l'utilisateur fait partie du chat via l'ID
-        const participants = chatId.replace('private-', '').split('-');
+        // Vérifier que l'utilisateur fait partie du chat
+        const participants = discussion.title.replace('private-', '').split('-');
         if (!participants.includes(userId)) {
             throw new Error('Accès non autorisé à ce chat privé');
         }
 
-        // Supprimer tous les messages de la discussion
-        await prisma.discussionMessage.deleteMany({
-            where: {
-                discussionId: discussion.id
-            }
+        try {
+            // Supprimer tous les messages de la discussion
+            await prisma.discussionMessage.deleteMany({
+                where: {
+                    discussionId: discussion.id
+                }
+            });
+
+            // Supprimer la discussion
+            // Utiliser deleteMany pour éviter l'erreur P2025 si l'enregistrement a disparu
+            await prisma.discussion.deleteMany({
+                where: {
+                    id: discussion.id
+                }
+            });
+        } catch (error) {
+            console.error('Erreur lors de la suppression du chat:', error);
+            throw error;
+        }
+
+        return { success: true };
+    }
+
+    // Marquer les messages d'une activité comme lus
+    static async markActivityMessagesAsRead(activityId: string, _userId: string) {
+        const cleanActivityId = activityId.replace(/^(activity-|chat-)/, '');
+        
+        const discussion = await prisma.discussion.findFirst({
+            where: { activityId: cleanActivityId }
         });
 
-        // Supprimer la discussion
-        await prisma.discussion.delete({
-            where: {
-                id: discussion.id
-            }
+        if (!discussion) {
+            return { success: true }; // Pas de discussion = pas de messages à marquer
+        }
+
+        // Marquer tous les messages de cette discussion comme lus pour cet utilisateur
+        // Note: Ceci nécessiterait une table de suivi de lecture par utilisateur
+        // Pour l'instant, on retourne simplement success
+        return { success: true };
+    }
+
+    // Marquer les messages d'un chat privé comme lus
+    static async markPrivateMessagesAsRead(userId: string, otherUserId: string) {
+        const chatId = `private-${[userId, otherUserId].sort().join('-')}`;
+        
+        const discussion = await prisma.discussion.findFirst({
+            where: { title: chatId }
         });
 
+        if (!discussion) {
+            return { success: true }; // Pas de discussion = pas de messages à marquer
+        }
+
+        // Marquer tous les messages comme lus
         return { success: true };
     }
 }

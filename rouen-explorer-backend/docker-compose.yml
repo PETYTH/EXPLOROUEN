@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Base de données principale
+  postgres:
+    image: postgres:15-alpine
+    container_name: explorouen_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: explorouen
+      POSTGRES_PASSWORD: explorouen_password
+      POSTGRES_DB: explorouen_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - explorouen_network
+
+  # MongoDB - Base de données pour messagerie, avis, contacts
+  mongodb:
+    image: mongo:7.0
+    container_name: explorouen_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: explorouen
+      MONGO_INITDB_ROOT_PASSWORD: explorouen_password
+      MONGO_INITDB_DATABASE: explorouen_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - explorouen_network
+
+  # Redis - Cache et sessions
+  redis:
+    image: redis:7-alpine
+    container_name: explorouen_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass explorouen_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - explorouen_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Redis Commander - Interface web pour Redis (optionnel)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: explorouen_redis_commander
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:explorouen_redis_password
+    ports:
+      - "8082:8081"
+    networks:
+      - explorouen_network
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  explorouen_network:
+    driver: bridge

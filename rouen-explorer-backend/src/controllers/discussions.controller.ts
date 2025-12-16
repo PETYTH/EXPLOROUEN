@@ -1,6 +1,7 @@
 // src/controllers/discussions.controller.ts
 import { Request, Response } from 'express';
 import { DiscussionsService } from '../services/discussions.service';
+import { getIO } from '../utils/socket';
 import Joi from 'joi';
 
 const createMessageSchema = Joi.object({
@@ -63,6 +64,15 @@ export class DiscussionsController {
                     messageType: req.body.messageType || 'IMAGE',
                     mediaUrl: `/uploads/${req.file.filename}`
                 });
+                
+                // Emit socket event
+                try {
+                    const cleanActivityId = activityId.replace(/^activity-/, '');
+                    getIO().to(`discussion-activity-${cleanActivityId}`).emit('new-message', message);
+                } catch (e) {
+                    console.error('Socket emit error:', e);
+                }
+
                 return res.status(201).json(message);
             }
 
@@ -83,6 +93,14 @@ export class DiscussionsController {
                 content: value.content,
                 messageType: req.body.messageType || 'TEXT'
             });
+
+            // Emit socket event
+            try {
+                const cleanActivityId = activityId.replace(/^activity-/, '');
+                getIO().to(`discussion-activity-${cleanActivityId}`).emit('new-message', message);
+            } catch (e) {
+                console.error('Socket emit error:', e);
+            }
 
             return res.status(201).json(message);
         } catch (error: any) {
@@ -188,6 +206,20 @@ export class DiscussionsController {
                     messageType: req.body.messageType || 'IMAGE',
                     mediaUrl: `/uploads/${req.file.filename}`
                 });
+
+                // Emit socket event
+                try {
+                    getIO().to(`discussion-${chatId}`).emit('new-message', message);
+                    
+                    // Notifier les participants via leur room personnelle (pour la liste des messages)
+                    const participants = chatId.replace('private-', '').split('-');
+                    participants.forEach(pId => {
+                        getIO().to(`user-${pId}`).emit('new-message', message);
+                    });
+                } catch (e) {
+                    console.error('Socket emit error:', e);
+                }
+
                 return res.json(message);
             }
 
@@ -199,6 +231,19 @@ export class DiscussionsController {
                 content,
                 messageType
             });
+
+            // Emit socket event
+            try {
+                getIO().to(`discussion-${chatId}`).emit('new-message', message);
+                
+                // Notifier les participants via leur room personnelle (pour la liste des messages)
+                const participants = chatId.replace('private-', '').split('-');
+                participants.forEach(pId => {
+                    getIO().to(`user-${pId}`).emit('new-message', message);
+                });
+            } catch (e) {
+                console.error('Socket emit error:', e);
+            }
 
             return res.json(message);
         } catch (error) {
@@ -245,6 +290,44 @@ export class DiscussionsController {
             console.error('Erreur lors de la suppression du chat privé:', error);
             return res.status(500).json({
                 error: error instanceof Error ? error.message : 'Erreur lors de la suppression du chat privé'
+            });
+        }
+    }
+
+    // Marquer les messages d'une activité comme lus
+    static async markActivityMessagesAsRead(req: Request, res: Response) {
+        try {
+            const userId = (req as any).auth?.userId;
+            if (!userId) {
+                return res.status(401).json({ error: 'Utilisateur non authentifié' });
+            }
+
+            const { activityId } = req.params;
+            await DiscussionsService.markActivityMessagesAsRead(activityId, userId);
+            return res.json({ success: true });
+        } catch (error) {
+            console.error('Erreur lors du marquage des messages comme lus:', error);
+            return res.status(500).json({
+                error: error instanceof Error ? error.message : 'Erreur lors du marquage des messages'
+            });
+        }
+    }
+
+    // Marquer les messages d'un chat privé comme lus
+    static async markPrivateMessagesAsRead(req: Request, res: Response) {
+        try {
+            const userId = (req as any).auth?.userId;
+            if (!userId) {
+                return res.status(401).json({ error: 'Utilisateur non authentifié' });
+            }
+
+            const { otherUserId } = req.params;
+            await DiscussionsService.markPrivateMessagesAsRead(userId, otherUserId);
+            return res.json({ success: true });
+        } catch (error) {
+            console.error('Erreur lors du marquage des messages comme lus:', error);
+            return res.status(500).json({
+                error: error instanceof Error ? error.message : 'Erreur lors du marquage des messages'
             });
         }
     }

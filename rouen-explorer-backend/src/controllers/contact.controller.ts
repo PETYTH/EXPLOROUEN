@@ -13,9 +13,14 @@ const contactSchema = Joi.object({
 export class ContactController {
     static async create(req: Request, res: Response) {
         try {
+            console.log('📧 Réception d\'un message de contact...');
+            console.log('📝 Body:', req.body);
+            console.log('👤 Auth Clerk:', (req as any).auth);
+            
             const { error, value } = contactSchema.validate(req.body);
 
             if (error) {
+                console.error('❌ Validation échouée:', error.details);
                 return res.status(400).json({
                     success: false,
                     message: 'Données invalides',
@@ -23,22 +28,25 @@ export class ContactController {
                 });
             }
 
-            // Ajouter l'ID utilisateur si disponible
+            // Ajouter l'ID utilisateur si disponible (depuis Clerk)
             const contactData = {
                 ...value,
-                userId: (req as any).user?.id || undefined
+                userId: (req as any).auth?.userId || undefined
             };
 
+            console.log('💾 Tentative de sauvegarde dans PostgreSQL (Supabase)...');
             const contact = await ContactService.createContact(contactData);
+            console.log('✅ Message sauvegardé avec succès:', contact.id);
 
             return res.status(201).json({
                 success: true,
                 message: 'Message envoyé avec succès',
                 data: {
-                    id: contact._id
+                    id: contact.id
                 }
             });
         } catch (error: any) {
+            console.error('❌ Erreur lors de la création du contact:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Erreur lors de l\'envoi du message',

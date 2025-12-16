@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
+
 import Joi from 'joi';
 
 const registerSchema = Joi.object({
@@ -37,14 +38,18 @@ export class AuthController {
           const { confirmPassword, ...payload } = value; // ⬅️ on enlève confirmPassword
           const result = await AuthService.register(payload);
           
-          // Envoyer l'email de bienvenue
-          try {
-            const { EmailService } = await import('../services/email.service');
-            const userForEmail = { ...result.user, password: '' }; // Exclure le mot de passe pour l'email
-            await EmailService.sendWelcomeEmail(userForEmail as any);
-          } catch (emailError) {
-            console.warn('⚠️ Erreur envoi email de bienvenue:', emailError);
-          }
+                    // Envoyer l'email de bienvenue
+                    try {
+                        const { EmailService } = await import('../services/email.service');
+                        // result.user may not exist, fallback to payload
+                        let user: any = payload;
+                        if (result && typeof result === 'object' && 'user' in result && result.user) {
+                            user = result.user;
+                        }
+                        await EmailService.sendWelcomeEmail(user.email, user.firstName);
+                    } catch (emailError) {
+                        console.warn('⚠️ Erreur envoi email de bienvenue:', emailError);
+                    }
       
           return res.status(201).json({ success:true, message:'Compte créé avec succès', data: result });
         } catch (e:any) {
@@ -107,7 +112,14 @@ export class AuthController {
 
     static async logout(req: Request, res: Response) {
         try {
-            const userId = (req as any).user.userId;
+
+            const userId = (req as any).user?.userId;
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Utilisateur non authentifié'
+                });
+            }
             await AuthService.logout(userId);
 
             return res.json({

@@ -62,8 +62,29 @@ export class ChatService {
             ChatMessage.countDocuments(query)
         ]);
 
+        // Convertir les messages Mongoose en objets simples avec le bon format
+        const cleanMessages = messages.reverse().map((msg: any) => ({
+            _id: msg._id,
+            roomId: msg.roomId,
+            roomType: msg.roomType,
+            userId: msg.senderId || msg.userId,
+            userName: msg.senderName || msg.userName,
+            userAvatar: msg.senderProfileImage || msg.userAvatar,
+            message: msg.content || msg.message,
+            messageType: msg.messageType || 'text',
+            attachments: msg.media || msg.attachments || [],
+            isEphemeral: msg.isEphemeral || false,
+            expiresAt: msg.expiresAt,
+            editedAt: msg.editedAt,
+            deletedAt: msg.deletedAt,
+            reactions: msg.reactions || [],
+            replyTo: msg.replyTo,
+            createdAt: msg.timestamp || msg.createdAt,
+            updatedAt: msg.updatedAt,
+        })) as IChatMessage[];
+
         return {
-            messages: messages.reverse(), // Ordre chronologique
+            messages: cleanMessages,
             pagination: {
                 page,
                 limit,

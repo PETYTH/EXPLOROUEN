@@ -51,5 +51,9 @@ router.post('/private/create', requireAuth, DiscussionsController.createPrivateC
 router.get('/private/:chatId/messages', requireAuth, DiscussionsController.getPrivateChatMessages);
 router.post('/private/:chatId/message', requireAuth, upload.single('media'), DiscussionsController.sendPrivateMessage);
 router.delete('/private/:chatId/delete', requireAuth, DiscussionsController.deletePrivateChat);
+router.post('/private/:otherUserId/read', requireAuth, DiscussionsController.markPrivateMessagesAsRead);
+
+// Routes pour marquer comme lu
+router.post('/:activityId/read', requireAuth, DiscussionsController.markActivityMessagesAsRead);
 
 export default router;

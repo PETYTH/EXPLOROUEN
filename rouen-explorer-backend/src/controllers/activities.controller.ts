@@ -6,10 +6,12 @@ import Joi from 'joi';
 const createActivitySchema = Joi.object({
     title: Joi.string().min(5).max(100).required(),
     description: Joi.string().min(20).max(500).required(),
-    type: Joi.string().valid('RUNNING', 'WALKING', 'CYCLING', 'HIKING', 'CULTURAL_VISIT', 'TREASURE_HUNT', 'PHOTOGRAPHY', 'KAYAK', 'CLIMBING').required(),
+    type: Joi.string().valid(
+        'SPORT', 'CULTURAL', 'NATURE', 'LEISURE', 'WELLNESS', 'EVENT'
+    ).required(),
     difficulty: Joi.string().valid('EASY', 'MEDIUM', 'HARD').required(),
     duration: Joi.number().min(15).max(480).required(), // 15min à 8h
-    maxParticipants: Joi.number().min(2).max(50).required(),
+    maxParticipants: Joi.number().min(2).max(1000).required(),
     startDate: Joi.date().greater('now').required(),
     endDate: Joi.date().greater(Joi.ref('startDate')).optional(),
     meetingPoint: Joi.string().min(5).max(200).required(),

@@ -1,12 +1,13 @@
 {
   "name": "ExploRouen-backend",
   "version": "1.0.0",
-  "description": "Backend API pour ExploRouen-backend - PWA touristique rouennaise",
+  "description": "Backend API pour ExploRouen-backend, une application de découverte touristique de la ville de Rouen.",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
-    "build": "tsc",
     "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
+    "build": "npx prisma generate && tsc",
+    "postinstall": "npx prisma generate",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -20,7 +21,7 @@
     "format": "prettier --write src/**/*.ts"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [
     "rouen",
@@ -36,7 +37,8 @@
   "license": "MIT",
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
-    "@prisma/client": "^5.6.0",
+    "@prisma/client": "^5.22.0",
+    "@types/mongoose": "^5.11.96",
     "@types/node-cron": "^3.0.11",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
@@ -49,10 +51,10 @@
     "express-slow-down": "^2.0.1",
     "express-validator": "^7.0.1",
     "helmet": "^7.1.0",
-    "ioredis": "^5.3.2",
+    "ioredis": "^5.7.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.0",
+    "mongoose": "^8.20.2",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.17",
@@ -68,6 +70,7 @@
     "@types/cookie-parser": "^1.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/ioredis": "^4.28.10",
     "@types/jest": "^29.5.8",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/multer": "^1.4.13",
@@ -83,6 +86,7 @@
     "prettier": "^3.0.3",
     "supertest": "^6.3.3",
     "ts-node": "^10.9.1",
+    "tsx": "^4.20.5",
     "typescript": "^5.2.2"
   },
   "engines": {

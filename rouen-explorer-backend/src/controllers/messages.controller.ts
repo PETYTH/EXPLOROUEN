@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { clerkClient } from '@clerk/clerk-sdk-node';
+import { getIO } from '../utils/socket';
+import { isUserAdmin } from '../utils/roleCheck';
 
 interface AuthenticatedRequest extends Request {
   auth?: {
@@ -17,12 +19,14 @@ export class MessagesController {
       const { activityId } = req.params;
       const userId = req.auth?.userId;
 
+      console.log(`📥 getMessages called for activityId: '${activityId}' by user: '${userId}'`);
+
       if (!userId) {
         res.status(401).json({ error: 'Non authentifié' });
         return;
       }
 
-      // Vérifier que l'utilisateur est inscrit à l'activité
+      // Vérifier que l'utilisateur est inscrit à l'activité OU est le créateur
       const registration = await prisma.registration.findFirst({
         where: {
           userId,
@@ -32,9 +36,30 @@ export class MessagesController {
         }
       });
 
+      // Si pas inscrit, vérifier si c'est le créateur ou un admin
       if (!registration) {
-        res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour accéder au chat' });
-        return;
+        console.log(`👤 User ${userId} not registered for ${activityId}. Checking if creator/admin...`);
+        
+        const activity = await prisma.activity.findUnique({
+          where: { id: activityId },
+          select: { createdBy: true }
+        });
+
+        if (!activity) {
+           console.log(`❌ Activity ${activityId} not found in database.`);
+           res.status(404).json({ error: 'Activité non trouvée' });
+           return;
+        }
+
+        const isAdmin = await isUserAdmin(userId);
+        console.log(`🔍 Access check: Creator=${activity.createdBy}, User=${userId}, Admin=${isAdmin}`);
+
+        if (activity.createdBy !== userId && !isAdmin) {
+          console.log(`⛔ Access denied for user ${userId}`);
+          res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour accéder au chat' });
+          return;
+        }
+        console.log(`✅ Access granted for creator/admin`);
       }
 
       // Récupérer ou créer la discussion
@@ -126,29 +151,58 @@ export class MessagesController {
         }
       }
 
-      // Vérifier que l'utilisateur est inscrit à l'activité
+      // Résolution d'ID : Vérifier si l'ID fourni est un ID de discussion au lieu d'un ID d'activité
+      let targetActivityId = activityId;
+      
+      // Tenter de trouver une discussion avec cet ID
+      const discussionCheck = await prisma.discussion.findUnique({
+        where: { id: activityId },
+        select: { activityId: true }
+      });
+
+      if (discussionCheck && discussionCheck.activityId) {
+        console.log(`🔄 Resolved Discussion ID ${activityId} to Activity ID ${discussionCheck.activityId}`);
+        targetActivityId = discussionCheck.activityId;
+      }
+
+      // Vérifier que l'utilisateur est inscrit à l'activité OU est le créateur
       const registration = await prisma.registration.findFirst({
         where: {
           userId,
-          itemId: activityId,
+          itemId: targetActivityId,
           type: 'ACTIVITY',
           status: 'ACCEPTED'
         }
       });
 
+      // Si pas inscrit, vérifier si c'est le créateur ou un admin
       if (!registration) {
-        res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour envoyer des messages' });
-        return;
+        const activity = await prisma.activity.findUnique({
+          where: { id: targetActivityId },
+          select: { createdBy: true }
+        });
+
+        if (!activity) {
+           res.status(404).json({ error: 'Activité non trouvée' });
+           return;
+        }
+
+        const isAdmin = await isUserAdmin(userId);
+
+        if (activity.createdBy !== userId && !isAdmin) {
+          res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour envoyer des messages' });
+          return;
+        }
       }
 
       // Récupérer ou créer la discussion
       let discussion = await prisma.discussion.findUnique({
-        where: { activityId }
+        where: { activityId: targetActivityId }
       });
 
       if (!discussion) {
         const activity = await prisma.activity.findUnique({
-          where: { id: activityId }
+          where: { id: targetActivityId }
         });
 
         if (!activity) {
@@ -158,7 +212,7 @@ export class MessagesController {
 
         discussion = await prisma.discussion.create({
           data: {
-            activityId,
+            activityId: targetActivityId,
             title: `Discussion - ${activity.title}`
           }
         });
@@ -183,9 +237,10 @@ export class MessagesController {
       });
 
       // Enrichir avec les données utilisateur
+      let enrichedMessage;
       try {
         const user = await clerkClient.users.getUser(userId);
-        const enrichedMessage = {
+        enrichedMessage = {
           ...message,
           user: {
             id: user.id,
@@ -195,10 +250,8 @@ export class MessagesController {
             fullName: `${user.firstName} ${user.lastName}`.trim()
           }
         };
-
-        res.status(201).json(enrichedMessage);
       } catch (error) {
-        const enrichedMessage = {
+        enrichedMessage = {
           ...message,
           user: {
             id: userId,
@@ -208,9 +261,60 @@ export class MessagesController {
             fullName: 'Utilisateur inconnu'
           }
         };
-
-        res.status(201).json(enrichedMessage);
       }
+
+      // Émettre le message via Socket.IO
+      try {
+        const io = getIO();
+        
+        const socketMessage = {
+          ...enrichedMessage,
+          activityId: targetActivityId
+        };
+        
+        // 1. Émettre à la room de la discussion (pour ceux qui sont DANS le chat)
+        // Pour les activités, le frontend rejoint 'activity-' + activityId
+        // Le backend préfixe avec 'discussion-', donc 'discussion-activity-' + activityId
+        io.to(`discussion-activity-${targetActivityId}`).emit('new-message', socketMessage);
+        
+        // 2. Émettre aux participants (pour la liste des messages)
+        // On doit récupérer les participants de l'activité
+        const registrations = await prisma.registration.findMany({
+          where: {
+            itemId: targetActivityId,
+            type: 'ACTIVITY',
+            status: 'ACCEPTED'
+          },
+          select: { userId: true }
+        });
+
+        // Récupérer le créateur de l'activité
+        const activity = await prisma.activity.findUnique({
+            where: { id: targetActivityId },
+            select: { createdBy: true }
+        });
+        
+        const recipients = new Set(registrations.map(r => r.userId));
+        if (activity && activity.createdBy) {
+            recipients.add(activity.createdBy);
+        }
+        
+        console.log(`📨 Sending notification to ${recipients.size} recipients for activity ${targetActivityId}`);
+        console.log(`👥 Recipients: ${Array.from(recipients).join(', ')}`);
+
+        recipients.forEach(recipientId => {
+           io.to(`user-${recipientId}`).emit('discussion-updated', {
+             discussionId: discussion.id,
+             activityId: targetActivityId,
+             lastMessage: socketMessage
+           });
+        });
+
+      } catch (socketError) {
+        console.error('Error emitting socket event:', socketError);
+      }
+
+      res.status(201).json(enrichedMessage);
     } catch (error) {
       console.error('Error sending message:', error);
       res.status(500).json({ error: 'Erreur serveur' });
@@ -228,25 +332,53 @@ export class MessagesController {
         return;
       }
 
+      // Résolution d'ID : Vérifier si l'ID fourni est un ID de discussion au lieu d'un ID d'activité
+      let targetActivityId = activityId;
+      
+      // Tenter de trouver une discussion avec cet ID
+      const discussionCheck = await prisma.discussion.findUnique({
+        where: { id: activityId },
+        select: { activityId: true }
+      });
+
+      if (discussionCheck && discussionCheck.activityId) {
+        targetActivityId = discussionCheck.activityId;
+      }
+
       // Vérifier que l'utilisateur est inscrit à l'activité
       const userRegistration = await prisma.registration.findFirst({
         where: {
           userId,
-          itemId: activityId,
+          itemId: targetActivityId,
           type: 'ACTIVITY',
           status: 'ACCEPTED'
         }
       });
 
+      // Si pas inscrit, vérifier si c'est le créateur ou un admin
       if (!userRegistration) {
-        res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour voir les participants' });
-        return;
+        const activity = await prisma.activity.findUnique({
+          where: { id: targetActivityId },
+          select: { createdBy: true }
+        });
+
+        if (!activity) {
+           res.status(404).json({ error: 'Activité non trouvée' });
+           return;
+        }
+
+        const isAdmin = await isUserAdmin(userId);
+
+        if (activity.createdBy !== userId && !isAdmin) {
+          res.status(403).json({ error: 'Vous devez être inscrit à cette activité pour voir les participants' });
+          return;
+        }
       }
 
       // Récupérer tous les participants inscrits
       const registrations = await prisma.registration.findMany({
         where: {
-          itemId: activityId,
+          itemId: targetActivityId,
           type: 'ACTIVITY',
           status: 'ACCEPTED'
         }
@@ -614,9 +746,10 @@ export class MessagesController {
       });
 
       // Enrichir avec les données utilisateur
+      let enrichedMessage;
       try {
         const user = await clerkClient.users.getUser(userId);
-        const enrichedMessage = {
+        enrichedMessage = {
           ...message,
           user: {
             id: user.id,
@@ -626,10 +759,8 @@ export class MessagesController {
             fullName: `${user.firstName} ${user.lastName}`.trim()
           }
         };
-
-        res.status(201).json(enrichedMessage);
       } catch (error) {
-        const enrichedMessage = {
+        enrichedMessage = {
           ...message,
           user: {
             id: userId,
@@ -639,9 +770,40 @@ export class MessagesController {
             fullName: 'Utilisateur inconnu'
           }
         };
-
-        res.status(201).json(enrichedMessage);
       }
+
+      // Émettre le message via Socket.IO
+      try {
+        const io = getIO();
+        
+        const socketMessage = {
+          ...enrichedMessage,
+          chatId: chatId // Ajouter l'ID du chat (private-...) pour le frontend
+        };
+        
+        // 1. Émettre à la room de la discussion (pour ceux qui sont DANS le chat)
+        // Note: Le frontend rejoint la room 'discussion-' + chatId (qui est le titre)
+        io.to(`discussion-${chatId}`).emit('new-message', socketMessage);
+        
+        // 2. Émettre aux participants individuels (pour ceux qui sont dans la LISTE des messages)
+        if (chatId.startsWith('private-')) {
+          const parts = chatId.split('-');
+          if (parts.length >= 3) {
+            const potentialIds = parts.filter(p => p !== 'private');
+            potentialIds.forEach(participantId => {
+               io.to(`user-${participantId}`).emit('discussion-updated', {
+                 discussionId: discussion.id,
+                 chatId: chatId,
+                 lastMessage: socketMessage
+               });
+            });
+          }
+        }
+      } catch (socketError) {
+        console.error('Error emitting socket event:', socketError);
+      }
+
+      res.status(201).json(enrichedMessage);
     } catch (error) {
       console.error('Error sending private message:', error);
       res.status(500).json({ error: 'Erreur serveur' });

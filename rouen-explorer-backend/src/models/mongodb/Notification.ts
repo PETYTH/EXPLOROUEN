@@ -77,8 +77,7 @@ const NotificationSchema = new Schema<INotification>({
         default: 'medium'
     },
     scheduledFor: {
-        type: Date,
-        index: true
+        type: Date
     },
     sentAt: {
         type: Date

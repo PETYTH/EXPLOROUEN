@@ -1,0 +1,63 @@
+// Schema pour SQLite - Cache et données système
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-cache"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./cache.db"
+}
+
+// Cache des images pour performance
+model ImageCache {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  data         String
+  entityType   String
+  entityId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  expiresAt    DateTime?
+
+  @@map("image_cache")
+}
+
+// Cache des sessions utilisateur
+model SessionCache {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  data      String?  // JSON stringifié
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_cache")
+}
+
+// Cache des requêtes API pour rate limiting
+model ApiCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON stringifié
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("api_cache")
+}
+
+// Logs système temporaires
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   // info, warn, error
+  message   String
+  metadata  String?  // JSON stringifié
+  createdAt DateTime @default(now())
+
+  @@map("system_logs")
+}

@@ -9,17 +9,30 @@ ExploRouen est une application React Native avec backend Node.js qui permet aux 
 ## 🚀 Technologies
 
 ### Frontend
-- React Native (Expo)
-- TypeScript
-- Clerk (Authentification)
-- Socket.IO (Chat temps réel)
+- **React Native** avec Expo SDK 52
+- **TypeScript** 5.x
+- **Expo Router** (File-based routing)
+- **Clerk** (@clerk/clerk-expo) - Authentification
+- **Socket.IO Client** - Chat temps réel
+- **React Native Maps** - Cartographie avec Jawg Maps
+- **Expo Image Picker** - Gestion des médias
+- **Lucide React Native** - Icônes
+- **React Native Reanimated** - Animations
+- **AsyncStorage** - Stockage local
+- **Axios** - Requêtes HTTP
 
 ### Backend
-- Node.js / Express
-- TypeScript
-- Prisma (ORM)
-- SQLite (Base de données)
-- Socket.IO (WebSocket)
+- **Node.js** 18+ avec Express.js
+- **TypeScript** 5.x
+- **PostgreSQL** (Supabase) avec **Prisma ORM** 5.22 - Données relationnelles
+- **MongoDB Atlas** avec **Mongoose** 8.x - Messagerie, notifications, avis
+- **Redis** avec **ioredis** - Cache de performance (optionnel)
+- **Socket.IO** - WebSocket temps réel
+- **Clerk SDK** - Validation JWT
+- **Multer** - Upload de fichiers
+- **Joi** - Validation des données
+- **Nodemailer** - Service d'emails
+- **ts-node** & **nodemon** - Développement
 
 ## 📱 Fonctionnalités
 
@@ -34,6 +47,7 @@ ExploRouen est une application React Native avec backend Node.js qui permet aux 
 ## 🌿 Structure des Branches
 
 - `main` - Code principal stable
+- `railway-deploy` - Branche de déploiement Railway (backend)
 - `feature/authentication` - Système d'authentification Clerk
 - `feature/activities` - Gestion des activités
 - `feature/monuments` - Découverte des monuments
@@ -56,7 +70,10 @@ ExploRouen est une application React Native avec backend Node.js qui permet aux 
 ### Backend (Node.js + Express)
 - **Runtime**: Node.js avec TypeScript
 - **Framework**: Express.js
-- **Base de données**: SQLite avec Prisma ORM
+- **Bases de données**: 
+  - PostgreSQL (Supabase) avec Prisma ORM - Données relationnelles
+  - MongoDB avec Mongoose - Messagerie, avis, contacts
+- **Cache**: Redis (ioredis) - Cache de performance
 - **Authentification**: Clerk SDK pour validation JWT
 - **Upload**: Multer pour gestion des images
 - **Validation**: Joi pour validation des données
@@ -209,21 +226,59 @@ npx expo start
 
 #### Backend (.env)
 ```env
-DATABASE_URL="file:./dev.db"
+# Serveur
+NODE_ENV=development
 PORT=5000
+MAX_FILE_SIZE=5242880
+UPLOAD_PATH=./uploads
+
+# PostgreSQL (Supabase) - Transaction Pooler
+DATABASE_URL=postgresql://postgres.PROJECT_ID:PASSWORD@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://postgres.PROJECT_ID:PASSWORD@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+
+# Supabase API
+SUPABASE_URL=https://PROJECT_ID.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# MongoDB Atlas
+MONGODB_URL=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/database?retryWrites=true&w=majority
+
+# Clerk Authentication
 CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
-JWT_SECRET=your_jwt_secret
+
+# Redis (Optionnel)
+REDIS_URL=redis://127.0.0.1:6379
+
+# JWT
+JWT_SECRET=your_secure_random_jwt_secret
+
+# Email (Resend ou autre)
+RESEND_API_KEY=re_...
+FROM_EMAIL=contact@explorouen.com
+
+# Frontend
 FRONTEND_URL=http://localhost:8081
-MAILTRAP_USER=your_mailtrap_user
-MAILTRAP_PASS=your_mailtrap_password
 ```
 
 #### Frontend (.env)
 ```env
-EXPO_PUBLIC_URL_BACKEND=http://192.168.1.62:5000/api
+# Carte Jawg
+JAWG_ACCESS_TOKEN=your_jawg_access_token
+
+# Clerk
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-JAWG_ACCESS_TOKEN=your_jawg_token
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# Backend API (Local)
+EXPO_PUBLIC_URL_BACKEND=http://172.16.4.155:5000/api
+
+# Backend API (Production Railway)
+# EXPO_PUBLIC_URL_BACKEND=https://your-app.up.railway.app/api
+
+# Redis (Optionnel)
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
 ## 🎨 Interface Utilisateur
@@ -325,10 +380,31 @@ POST   /api/messages                      # Envoyer un message
 ### Frontend
 - **Console Expo** : Logs en temps réel
 - **Flipper** : Débogage avancé (optionnel)
-- **Error Boundaries** : Gestion des erreurs React
+## 🌐 Déploiement Production
 
-### Backend
-- **Morgan** : Logs des requêtes HTTP
+### Backend sur Railway
+- Base de données PostgreSQL (Supabase Transaction Pooler port 6543)
+- MongoDB Atlas pour les documents
+- Variables d'environnement configurées
+- URL Production : `https://explorouen-production.up.railway.app`
+
+### Configuration Réseau Local
+- Backend : `http://172.16.4.155:5000`
+- Frontend : `http://172.16.4.155:8081`
+- CORS configuré pour IPs locales et Expo
+
+### Ports Utilisés
+- **Backend** : 5000
+- **Frontend Dev** : 8081 (Metro Bundler)
+- **PostgreSQL** : 6543 (Transaction Pooler), 5432 (Direct)
+- **MongoDB** : 27017
+- **Redis** : 6379
+
+---
+
+**Version** : 1.0.0  
+**Dernière mise à jour** : Décembre 2025  
+**Développé par** : Équipe ExploRouen
 - **Winston** : Logs structurés (prévu)
 - **Error Handling** : Middleware global d'erreurs
 

@@ -1,17 +1,20 @@
-// src/server.ts
+// src/server.ts 
 import express from 'express';
 import { createServer } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
+import { initSocket } from './utils/socket';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { connectDatabase } from './utils/database';
 import { connectMongoDB } from './config/mongodb';
+import { connectDatabases } from './config/prisma';
 import { errorHandler, sanitizeInput } from './middleware/security.middleware';
 import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import { CleanupJob } from './jobs/cleanup.job';
+import { startNotificationsJob, stopNotificationsJob } from './jobs/notifications.job';
+import cacheService from './services/cache.service';
 
 // Routes
 import placesRoutes from './routes/places.routes';
@@ -29,13 +32,7 @@ import uploadRoutes from './routes/upload.routes';
 
 const app = express();
 const server = createServer(app);
-const io = new SocketIOServer(server, {
-    cors: {
-        origin: config.corsOrigin,
-        methods: ["GET", "POST"],
-        credentials: true
-    }
-});
+const io = initSocket(server);
 
 // Middlewares de sécurité
 app.use(helmet({
@@ -65,7 +62,7 @@ app.use(cors({
 // Rate limiting général - Configuration plus permissive pour le développement
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: config.nodeEnv === 'production' ? 100 : 100000, // 1000 requêtes en dev, 100 en prod
+    max: config.nodeEnv === 'production' ? 1000 : 100000, // 1000 requêtes en prod, 100000 en dev
     message: {
         success: false,
         message: 'Trop de requêtes. Réessayez dans 15 minutes.'
@@ -104,18 +101,31 @@ app.use('/api/upload', uploadRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+    const cacheHealth = await cacheService.healthCheck();
+    const cacheStats = await cacheService.getStats();
+    
     res.json({
         success: true,
         message: 'ExploRouen API is running',
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: '1.0.0',
+        cache: {
+            available: cacheHealth,
+            stats: cacheStats
+        }
     });
 });
 
 // WebSocket pour le chat en temps réel
 io.on('connection', (socket) => {
     // Client connecté
+    
+    // Identifier l'utilisateur pour les notifications personnelles
+    socket.on('identify', (userId: string) => {
+        console.log(`👤 Utilisateur identifié sur socket: ${userId}`);
+        socket.join(`user-${userId}`);
+    });
 
     // Rejoindre une discussion
     socket.on('join-discussion', (discussionId: string) => {
@@ -180,21 +190,35 @@ const startServer = async () => {
     });
 
     try {
-        console.log('🔌 Connexion à la base de données...');
+        console.log('🔌 Connexion aux bases de données...');
+        
+        // Connecter PostgreSQL (Supabase) et SQLite (Cache)
+        await connectDatabases();
+        
+        // Connecter l'ancienne base si nécessaire (compatibilité)
         await connectDatabase();
-        console.log('✅ Base de données connectée');
+        console.log('✅ Base de données legacy connectée');
 
-        // Désactiver MongoDB et Redis pour le développement local
-        if (config.nodeEnv === 'production') {
-            console.log('🔌 Connexion à MongoDB...');
+        // Connecter MongoDB (pour les messages de contact, etc.)
+        console.log('🔌 Connexion à MongoDB...');
+        try {
             await connectMongoDB();
             console.log('✅ MongoDB connecté');
             
-            // Démarrer les tâches de nettoyage automatique
-            CleanupJob.start();
-        } else {
-            console.log('⚠️ MongoDB et Redis désactivés en mode développement');
+            // Démarrer les tâches de nettoyage automatique en production
+            if (config.nodeEnv === 'production') {
+                CleanupJob.start();
+            }
+        } catch (error) {
+            console.error('⚠️ Erreur connexion MongoDB (non bloquant):', error);
         }
+        
+        // Démarrer le job de notifications programmées (toujours actif)
+        startNotificationsJob();
+        
+        // Nettoyer le cache au démarrage
+        await cacheService.cleanExpiredImages();
+        await cacheService.cleanOldLogs();
 
         console.log('🚀 Démarrage du serveur...');
         
@@ -216,6 +240,7 @@ process.on('SIGINT', () => {
     if (config.nodeEnv === 'production') {
         CleanupJob.stop();
     }
+    stopNotificationsJob();
     server.close(() => {
         console.log('✅ Serveur arrêté proprement');
         process.exit(0);

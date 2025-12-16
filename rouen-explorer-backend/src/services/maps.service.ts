@@ -80,7 +80,7 @@ export class MapsService {
         // Filtrer par bounds si spécifié
         let filteredPlaces = places;
         if (bounds) {
-            filteredPlaces = places.filter(place => 
+            filteredPlaces = places.filter((place: any) => 
                 place.latitude >= bounds.south &&
                 place.latitude <= bounds.north &&
                 place.longitude >= bounds.west &&
@@ -90,7 +90,7 @@ export class MapsService {
 
         // Filtrer par rayon si spécifié
         if (radius && center) {
-            filteredPlaces = filteredPlaces.filter(place => {
+            filteredPlaces = filteredPlaces.filter((place: any) => {
                 const distance = this.calculateDistance(
                     center,
                     { latitude: place.latitude, longitude: place.longitude }
@@ -99,7 +99,7 @@ export class MapsService {
             });
         }
 
-        return filteredPlaces.map(place => ({
+        return filteredPlaces.map((place: any) => ({
             ...place,
             coordinates: {
                 latitude: place.latitude,
@@ -137,6 +137,7 @@ export class MapsService {
                 difficulty: true,
                 duration: true,
                 distance: true,
+                image: true,
                 latitude: true,
                 longitude: true,
                 meetingPoint: true,
@@ -150,7 +151,7 @@ export class MapsService {
         // Appliquer les filtres géographiques
         let filteredActivities = activities;
         if (bounds) {
-            filteredActivities = activities.filter(activity => 
+            filteredActivities = activities.filter((activity: any) => 
                 activity.latitude >= bounds.south &&
                 activity.latitude <= bounds.north &&
                 activity.longitude >= bounds.west &&
@@ -159,7 +160,7 @@ export class MapsService {
         }
 
         if (radius && center) {
-            filteredActivities = filteredActivities.filter(activity => {
+            filteredActivities = filteredActivities.filter((activity: any) => {
                 const distance = this.calculateDistance(
                     center,
                     { latitude: activity.latitude, longitude: activity.longitude }
@@ -168,7 +169,7 @@ export class MapsService {
             });
         }
 
-        return filteredActivities.map(activity => ({
+        return filteredActivities.map((activity: any) => ({
             ...activity,
             coordinates: {
                 latitude: activity.latitude,
@@ -332,7 +333,7 @@ export class MapsService {
             radius
         });
 
-        return places.map(place => ({
+        return places.map((place: any) => ({
             id: place.id,
             name: place.name,
             type: 'place',

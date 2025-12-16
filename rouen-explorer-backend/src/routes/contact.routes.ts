@@ -2,12 +2,13 @@
 import { Router } from 'express';
 import { ContactController } from '../controllers/contact.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
+import { requireAuth } from '../middleware/clerk.middleware';
 // import { checkCookieConsent } from '../middleware/cookies.middleware';
 
 const router = Router();
 
 // Routes publiques
-router.post('/', authenticate, ContactController.create);
+router.post('/', requireAuth, ContactController.create);
 
 // Routes administrateur
 router.get('/', authenticate, authorize(['ADMIN', 'MODERATOR']), ContactController.getAll);

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Image {
@@ -97,11 +98,10 @@ model ActivityPlace {
 }
 
 model Monument {
-  id             String   @id @default(cuid())
+  id             String          @id @default(cuid())
   name           String
   description    String
   image          String
-  rating         Float
   visitDuration  String
   category       String
   latitude       Float
@@ -112,8 +112,10 @@ model Monument {
   highlights     String
   history        String
   easterEggHints String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  reviews        MonumentReview[]
+  plannedVisits  PlannedVisit[]
 
   @@map("monuments")
 }
@@ -270,4 +272,49 @@ model notifications {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime
+}
+
+model MonumentReview {
+  id          String   @id @default(cuid())
+  userId      String
+  monumentId  String
+  rating      Int
+  comment     String?
+  images      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  monument    Monument @relation(fields: [monumentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, monumentId])
+  @@map("monument_reviews")
+}
+
+model PlannedVisit {
+  id                   String   @id @default(cuid())
+  userId               String
+  monumentId           String
+  visitDate            DateTime
+  timeSlot             String
+  notificationSent     Boolean  @default(false)
+  dayNotificationSent  Boolean  @default(false)
+  hourNotificationSent Boolean  @default(false)
+  status               String   @default("PLANNED")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  monument             Monument @relation(fields: [monumentId], references: [id], onDelete: Cascade)
+
+  @@map("planned_visits")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
 }
